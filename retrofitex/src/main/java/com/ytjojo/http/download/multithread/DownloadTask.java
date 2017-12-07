@@ -29,7 +29,8 @@ public class DownloadTask {
     private long contentLength;
     public AtomicBoolean isStoped;
     private long needDownloadLength;
-    public DownloadTask(File file,ProgressHandler handler, DownloadInfo downloadInfo) {
+
+    public DownloadTask(File file, ProgressHandler handler, DownloadInfo downloadInfo) {
         this.mFile = file;
         this.mProgressHandler = handler;
         this.mDownloadInfo = downloadInfo;
@@ -37,15 +38,15 @@ public class DownloadTask {
         this.endPos = mDownloadInfo.getEndPos();
         this.compeleteSize = mDownloadInfo.getCompeleteSize();
         this.isStoped = new AtomicBoolean(false);
-        this.needDownloadLength = downloadInfo.getEndPos() -(startPos + compeleteSize)+1;
+        this.needDownloadLength = downloadInfo.getEndPos() - (startPos + compeleteSize) + 1;
     }
 
-    public void execute(OkHttpClient client, Request request){
+    public void execute(OkHttpClient client, Request request) {
 
         Request rangeRequest = request.newBuilder().header("Range", "bytes=" + (startPos + compeleteSize) + "-" + endPos).build();
         RandomAccessFile raf = null;
         BufferedInputStream bis = null;
-        ResponseBody responseBody =null;
+        ResponseBody responseBody = null;
         FileChannel channelOut = null;
         try {
             Response response = client.newCall(rangeRequest).execute();
@@ -60,7 +61,7 @@ public class DownloadTask {
             bis = new BufferedInputStream(responseBody.byteStream());
             channelOut = raf.getChannel();
 
-            MappedByteBuffer mappedBuffer = channelOut.map(FileChannel.MapMode.READ_WRITE,startPos+compeleteSize, contentLength);
+            MappedByteBuffer mappedBuffer = channelOut.map(FileChannel.MapMode.READ_WRITE, startPos + compeleteSize, contentLength);
 //            raf.seek(startPos + compeleteSize);
             int bytesRead = -1;
             byte[] buff = new byte[4096];
@@ -77,27 +78,27 @@ public class DownloadTask {
                     break;
                 }
             }
-            boolean forceStop = isStoped.get();
-            boolean isFinish= needDownloadLength ==contentLength;
-            Logger.e(mDownloadInfo.getThreadId() +" id  "+contentLength + "完成 start" +mDownloadInfo.getStartPos()+ "endpos =" +mDownloadInfo.getEndPos()+ "comlete="+mDownloadInfo.getCompeleteSize());
+            boolean isFinish = needDownloadLength == contentLength;
+            Logger.e(mDownloadInfo.getThreadId() + " id  " + contentLength + "完成 start" + mDownloadInfo.getStartPos() + "endpos =" + mDownloadInfo.getEndPos() + "comlete=" + mDownloadInfo.getCompeleteSize());
 
 //            if(!forceStop&& mDownloadInfo.getStartPos() + compeleteSize != mDownloadInfo.getEndPos()+1){
 //                throw new DownLoadException("保存文件出错");
 //            }
 
         } catch (FileNotFoundException e) {
-            throw new DownLoadException("文件保存出错",e);
+            throw new DownLoadException("文件保存出错", e);
         } catch (IOException e) {
-            Logger.e(e.toString() + " --" +e.getLocalizedMessage() + "--" + e.getMessage());
+            Logger.e(e.toString() + " --" + e.getLocalizedMessage() + "--" + e.getMessage());
         } finally {
             okhttp3.internal.Util.closeQuietly(raf);
             okhttp3.internal.Util.closeQuietly(bis);
-            okhttp3.internal.Util.closeQuietly( channelOut);
-            if(responseBody !=null)
-            responseBody.close();
+            okhttp3.internal.Util.closeQuietly(channelOut);
+            if (responseBody != null)
+                responseBody.close();
         }
     }
-    public boolean isFinish(){
+
+    public boolean isFinish() {
         return compeleteSize == contentLength;
     }
 
@@ -107,11 +108,5 @@ public class DownloadTask {
         builder.header("Accept-Encoding", "utf-8");
         builder.header("Accept-Charset", "ISO-8859-1,utf-8;q=0.7,*;q=0.7");
         builder.header("connnection", "keep-alive");
-//            builder.header("Accept-Language", "en-us,en;q=0.7,zh-cn;q=0.3");
-//            builder.header("Keep-Alive", "300");//无意义，禁止添加
-//            builder.header("If-Modified-Since", "Fri, 02 Jan 2009 17:00:05 GMT");//
-//            builder.header("If-None-Match", "md5");//资源的md5
-//            builder.header("Cache-conntrol", "max-age=0");
-//            builder.header("Referer", mDownloadInfo.getUrl());
     }
 }

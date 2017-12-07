@@ -1,10 +1,10 @@
 package com.ytjojo.rx;
 
-import rx.Observable;
-import rx.Subscription;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Action1;
-import rx.subscriptions.CompositeSubscription;
+import io.reactivex.Flowable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
 
 /**
  * 用于管理RxBus的事件和Rxjava相关代码的生命周期处理
@@ -13,24 +13,24 @@ import rx.subscriptions.CompositeSubscription;
 public class RxManage {
 
     public RxBus mRxBus = RxBus.getDefault();
-    private CompositeSubscription mCompositeSubscription = new CompositeSubscription();// 管理订阅者者
+    private CompositeDisposable mCompositeSubscription = new CompositeDisposable();// 管理订阅者者
 
 
-    public <T> void register(String tag, Class<T> clazz,Action1<T> action1) {
-        Observable<T> mObservable = mRxBus.register(tag,clazz);
+    public <T> void register(String tag, Class<T> clazz,Consumer<T> action1) {
+        Flowable<T> mObservable = mRxBus.register(tag,clazz);
         mCompositeSubscription.add(mObservable
                 .subscribe(action1, (e) -> e.printStackTrace()));
     }
-    public <T> void register(Class<T> clazz, Action1<T> action1){
-        Observable<T> observable = mRxBus.register(clazz);
+    public <T> void register(Class<T> clazz, Consumer<T> action1){
+        Flowable<T> observable = mRxBus.register(clazz);
         mCompositeSubscription.add(observable.observeOn(AndroidSchedulers.mainThread()).subscribe(action1,(e) ->e.printStackTrace()));
     }
-    public void add(Subscription m) {
+    public void add(Disposable m) {
         mCompositeSubscription.add(m);
     }
 
     public void clear() {
-        mCompositeSubscription.unsubscribe();// 取消订阅
+        mCompositeSubscription.clear();// 取消订阅
     }
 
     public void post(String tag, Object content) {

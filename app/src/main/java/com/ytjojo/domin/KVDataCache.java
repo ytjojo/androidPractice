@@ -2,7 +2,8 @@ package com.ytjojo.domin;
 
 import java.util.List;
 
-import rx.Observable;
+import io.reactivex.Observable;
+
 
 /**
  * Created by Administrator on 2016/3/31 0031.
@@ -13,7 +14,7 @@ public interface KVDataCache  {
     void save(Object o);
     void save(String key,Object o);
     <T> void save(String key,List<T> list);
-    <T> Observable<T> get(String key,Class<T> clazz);
+    <T> Observable<T> get(String key, Class<T> clazz);
     void clearAll();
     void delete(String key);
     <T> void delete(Class<T> clazz);

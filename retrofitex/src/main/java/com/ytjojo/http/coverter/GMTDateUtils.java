@@ -6,18 +6,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.annotation.Nullable;
-
-import okhttp3.Cookie;
-import okhttp3.HttpUrl;
-import okhttp3.internal.http.HttpDate;
-import okhttp3.internal.publicsuffix.PublicSuffixDatabase;
-
 import static okhttp3.internal.Util.UTC;
-import static okhttp3.internal.Util.delimiterOffset;
-import static okhttp3.internal.Util.indexOfControlOrNonAscii;
-import static okhttp3.internal.Util.trimSubstring;
-import static okhttp3.internal.Util.verifyAsIpAddress;
 
 /**
  * Created by Administrator on 2017/11/12 0012.

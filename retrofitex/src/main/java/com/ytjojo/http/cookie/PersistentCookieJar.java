@@ -33,6 +33,11 @@ import okhttp3.HttpUrl;
 
 public class PersistentCookieJar implements ClearableCookieJar {
 
+
+    public static PersistentCookieJar get(Context c){
+        return new PersistentCookieJar(c.getApplicationContext());
+    }
+
     private CookieCache cache;
     private CookiePersistor persistor;
 

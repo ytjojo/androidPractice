@@ -9,20 +9,25 @@ import android.os.Environment;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
+
 import com.ytjojo.http.download.multithread.ProgressInfo;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+
+import io.reactivex.Observable;
+import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import retrofit2.Retrofit;
 import retrofit2.http.GET;
-import rx.Observable;
-import rx.Subscriber;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.schedulers.Schedulers;
 
 /**
  * Created by zs on 2016/7/8.
@@ -70,14 +75,21 @@ public class DownLoadService extends Service {
         }
 
         ResponseMapper mapper =new ResponseMapper(destFileDir, destFileName);
-        mapper.subscribe(new Subscriber<ProgressInfo>() {
+        mapper.subscribe(new Observer<ProgressInfo>() {
+
+
             @Override
-            public void onCompleted() {
+            public void onError(Throwable e) {
 
             }
 
             @Override
-            public void onError(Throwable e) {
+            public void onComplete() {
+
+            }
+
+            @Override
+            public void onSubscribe(@NonNull Disposable d) {
 
             }
 
@@ -93,14 +105,20 @@ public class DownLoadService extends Service {
                 .loadFile().map(mapper)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Subscriber<File>() {
+                .subscribe(new Observer<File>() {
+
                     @Override
-                    public void onCompleted() {
+                    public void onError(Throwable e) {
 
                     }
 
                     @Override
-                    public void onError(Throwable e) {
+                    public void onComplete() {
+
+                    }
+
+                    @Override
+                    public void onSubscribe(@NonNull Disposable d) {
 
                     }
 

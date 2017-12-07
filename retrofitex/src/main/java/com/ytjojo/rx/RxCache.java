@@ -6,16 +6,16 @@ import com.ytjojo.http.cache.ACache;
 
 import java.io.File;
 import java.io.Serializable;
-import java.util.LinkedHashMap;
+import java.util.concurrent.Callable;
 
-import rx.Observable;
-import rx.Subscriber;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Func0;
-import rx.functions.Func1;
-import rx.schedulers.Schedulers;
-import rx.subjects.PublishSubject;
-import rx.subjects.SerializedSubject;
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.ObservableSource;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 
 /**
  * Created by Jam on 16-7-6
@@ -24,7 +24,6 @@ import rx.subjects.SerializedSubject;
  */
 public class RxCache {
 
-    private final SerializedSubject subject;
 
     /**
      * @param context
@@ -36,15 +35,24 @@ public class RxCache {
      * @return
      */
     public static <T> Observable<T> load(final Context context, final String cacheKey, final long expireTime, Observable<T> fromNetwork, boolean forceRefresh) {
-        Observable<T> fromCache = Observable.unsafeCreate(new Observable.OnSubscribe<T>() {
+        Observable<T> fromCache = Observable.defer(new Callable<ObservableSource<T>>() {
             @Override
-            public void call(Subscriber<? super T> subscriber) {
-                T cache = (T) CacheManager.readObject(context, cacheKey, expireTime);
-                if (cache != null) {
-                    subscriber.onNext(cache);
-                } else {
-                    subscriber.onCompleted();
-                }
+            public ObservableSource<T> call() throws Exception {
+                return Observable.create(new ObservableOnSubscribe<T>() {
+                    @Override
+                    public void subscribe(@NonNull ObservableEmitter<T> e) throws Exception {
+                        T cache = (T) CacheManager.readObject(context, cacheKey, expireTime);
+                        if(!e.isDisposed()){
+                            if (cache != null) {
+                                e.onNext(cache);
+                            } else {
+                                e.onComplete();
+                            }
+                        }
+
+                    }
+
+                });
             }
         }).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread());
 
@@ -52,9 +60,9 @@ public class RxCache {
         /**
          * 这里的fromNetwork 不需要指定Schedule,在handleRequest中已经变换了
          */
-        fromNetwork = fromNetwork.map(new Func1<T, T>() {
+        fromNetwork = fromNetwork.map(new Function<T, T>() {
             @Override
-            public T call(T result) {
+            public T apply(T result) {
                 CacheManager.saveObject(context, (Serializable) result, cacheKey);
                 return result;
             }
@@ -62,47 +70,31 @@ public class RxCache {
         if (forceRefresh) {
             return fromNetwork;
         } else {
-            return Observable.concat(fromCache, fromNetwork).first();
+            return Observable.concat(fromCache, fromNetwork).take(1);
         }
 
     }
 
 
-    private LinkedHashMap<String, Object> mClassMap = new LinkedHashMap<>();
-    private LinkedHashMap<String, Object> mTagMap = new LinkedHashMap<>();
     ACache mACache;
 
     public RxCache(File cacheDir, long max_zise) {
         mACache = ACache.get(cacheDir, max_zise, Integer.MAX_VALUE);
-        subject = new SerializedSubject<>(PublishSubject.create());
     }
 
-    public <T> Observable<T> get(String tag) {
-        Object target = mTagMap.get(tag);
-        if (target == null) {
-            return Observable.error(new RuntimeException("notfound"));
-        } else {
-            return Observable.just((T) target);
-        }
-    }
 
     public Observable<? extends Serializable> get(Class<? extends Serializable> clazz) {
-        Object target = mTagMap.get(clazz.getName());
-
-        if (target == null) {
-            return RxCreator.createDefer(new Func0<Observable<Serializable>>() {
-                @Override
-                public Observable<Serializable> call() {
-                    Serializable value = (Serializable) mACache.getAsObject(clazz.getName());
-                    if(value == null){
-                        return Observable.error(new RuntimeException("notfound"));
-                    }
-                    return Observable.just(value);
+        return Observable.defer(new Callable<ObservableSource<? extends Serializable>>() {
+            @Override
+            public ObservableSource<? extends Serializable> call() throws Exception {
+                Serializable value = (Serializable) mACache.getAsObject(clazz.getName());
+                if(value == null){
+                    return Observable.error(new RuntimeException("notfound"));
                 }
-            });
-        } else {
-            return Observable.just((Serializable) target);
-        }
+                return Observable.just(value);
+            }
+        });
+
     }
 
 }

@@ -9,6 +9,7 @@ import com.ytjojo.http.okhttpBuilder.CacheHeaderTime;
 import java.util.ArrayList;
 import java.util.Map;
 
+import io.reactivex.Observable;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import retrofit2.http.ArrayItem;
@@ -23,7 +24,6 @@ import retrofit2.http.POST;
 import retrofit2.http.Part;
 import retrofit2.http.PartMap;
 import retrofit2.http.Url;
-import rx.Observable;
 
 public interface GitApiInterface {
 

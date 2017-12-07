@@ -19,9 +19,9 @@ import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 
-import com.trello.rxlifecycle.components.support.RxAppCompatActivity;
-import com.ytjojo.practice.R;
+import com.trello.rxlifecycle2.components.support.RxAppCompatActivity;
 import com.ytjojo.fragmentstack.FragmentStacks;
+import com.ytjojo.practice.R;
 import com.ytjojo.utils.DensityUtil;
 import com.ytjojo.widget.SwipeBackLayout;
 

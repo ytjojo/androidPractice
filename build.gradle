@@ -39,6 +39,39 @@ allprojects {
 //            options.compilerArgs << "-Xbootclasspath/a:" + System.properties.get("java.home") + "/lib/rt.jar"
 //        }
 //    }
+
+
+    configurations.all {
+        // Check for updates every build
+//        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+        resolutionStrategy {
+            // fail eagerly on version conflict (includes transitive dependencies)
+            // e.g. multiple different versions of the same dependency (group and name are equal)
+//            failOnVersionConflict()
+            // prefer modules that are part of this build (multi-project or composite build) over external modules
+            preferProjectModules()
+            // force certain versions of dependencies (including transitive)
+            //  *append new forced modules:
+
+            force 'com.android.support:appcompat-v7:25.2.0', 'com.squareup.okhttp3:okhttp:3.8.1'
+            force 'com.android.support:support-annotations:25.2.0'
+            //  *replace existing forced modules with new ones:
+//            forcedModules = ['asm:asm-all:3.3.1']
+
+            // add dependency substitution rules
+//            dependencySubstitution {
+//                substitute module('com.easygroup.ngarihealth:ngr_entrysource') with project(':ngr_entrysource')
+//                substitute project(':ngr_easeui') with module('com.easygroup.ngarihealth:ngr_easeui:0.0.2-SNAPSHOT')
+//            }
+
+            // cache dynamic versions for 10 minutes
+            cacheDynamicVersionsFor 24*60*60, 'seconds'
+            // don't cache changing modules at all
+            cacheChangingModulesFor 0, 'seconds'
+
+        }
+
+    }
     tasks.withType(JavaCompile){
         options.encoding = "UTF-8"
         sourceCompatibility = org.gradle.api.JavaVersion.VERSION_1_8
@@ -47,6 +80,7 @@ allprojects {
     tasks.withType(Javadoc) {
         options.encoding = 'UTF-8'
     }
+
 
 }
 clean {

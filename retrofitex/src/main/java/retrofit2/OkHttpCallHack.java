@@ -17,8 +17,6 @@ package retrofit2;
 
 import java.io.IOException;
 
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 import okhttp3.MediaType;
 import okhttp3.Request;
@@ -32,19 +30,15 @@ import static retrofit2.Utils.checkNotNull;
 
 final class OkHttpCallHack<T> implements Call<T> {
   private final ServiceMethodHack<T, ?> serviceMethod;
-  private final @Nullable
-  Object[] args;
+  private final Object[] args;
 
   private volatile boolean canceled;
 
-  @GuardedBy("this")
-  private @Nullable okhttp3.Call rawCall;
-  @GuardedBy("this")
-  private @Nullable Throwable creationFailure; // Either a RuntimeException or IOException.
-  @GuardedBy("this")
+  private okhttp3.Call rawCall;
+  private  Throwable creationFailure; // Either a RuntimeException or IOException.
   private boolean executed;
 
-  OkHttpCallHack(ServiceMethodHack<T, ?> serviceMethod,@Nullable Object[] args) {
+  OkHttpCallHack(ServiceMethodHack<T, ?> serviceMethod, Object[] args) {
     this.serviceMethod = serviceMethod;
     this.args = args;
   }

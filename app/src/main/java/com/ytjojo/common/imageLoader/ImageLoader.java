@@ -5,11 +5,12 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.widget.ImageView;
 
-import java.io.File;
+import org.reactivestreams.Subscriber;
 
-import rx.Observable;
-import rx.Subscriber;
-import rx.functions.Action1;
+import java.io.File;
+import java.util.function.Consumer;
+
+import io.reactivex.Observable;
 
 /**
  * Created by Administrator on 2016/4/5 0005.
@@ -57,6 +58,6 @@ public interface ImageLoader {
 
     void clearMemory(Context context);
     void subject(Subscriber<Bitmap> bitmapSubscriber);
-    void subject(Action1<Bitmap> bitmapAction1);
+    void subject(Consumer<Bitmap> bitmapAction1);
     boolean isExistInFile(String url);
 }

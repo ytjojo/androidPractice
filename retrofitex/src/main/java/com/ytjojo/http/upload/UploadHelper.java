@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import io.reactivex.Observable;
 import okhttp3.MediaType;
 import okhttp3.RequestBody;
 import retrofit2.http.Multipart;
@@ -15,7 +16,6 @@ import retrofit2.http.POST;
 import retrofit2.http.Part;
 import retrofit2.http.PartMap;
 import retrofit2.http.Path;
-import rx.Observable;
 
 /**
  * Created by Administrator on 2016/11/20 0020.
@@ -23,7 +23,7 @@ import rx.Observable;
 public class UploadHelper {
     private MediaType jsonMediaType = MediaType.parse("application/json; charset=utf-8");
     private MediaType dataMediaType = MediaType.parse("multipart/form-data");
-    public  Observable<String> upload(ArrayList<File> files, String url,String des,UploadCallback callback){
+    public Observable<String> upload(ArrayList<File> files, String url, String des, UploadCallback callback){
         HashMap<String, RequestBody> params = new HashMap<>();
         for(File file:files){
             RequestBody body =

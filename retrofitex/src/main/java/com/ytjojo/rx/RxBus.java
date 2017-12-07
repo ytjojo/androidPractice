@@ -3,33 +3,47 @@ package com.ytjojo.rx;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
-import com.trello.rxlifecycle.LifecycleTransformer;
+import com.trello.rxlifecycle2.LifecycleTransformer;
 
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+
+import java.lang.reflect.Type;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import rx.Observable;
-import rx.Subscriber;
-import rx.Subscription;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.exceptions.Exceptions;
-import rx.functions.Action0;
-import rx.subjects.PublishSubject;
-import rx.subjects.SerializedSubject;
-import rx.subjects.Subject;
-import rx.subscriptions.Subscriptions;
+import io.reactivex.BackpressureStrategy;
+import io.reactivex.Flowable;
+import io.reactivex.FlowableEmitter;
+import io.reactivex.FlowableOnSubscribe;
+import io.reactivex.FlowableSubscriber;
+import io.reactivex.Observable;
+import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Cancellable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.plugins.RxJavaPlugins;
+import io.reactivex.processors.FlowableProcessor;
+import io.reactivex.processors.PublishProcessor;
+import io.reactivex.schedulers.Schedulers;
 
 /**
- * Author: wangjie
- * Email: tiantian.china.2@gmail.com
- * Date: 6/11/15.
+ * Author: 杨腾蛟
+ * Email: ytjojo@163.com
+ * Date: 7/12/17.
  */
 public class RxBus {
     private static final String TAG = RxBus.class.getSimpleName();
     private static volatile RxBus instance;
     public static boolean DEBUG = false;
-//    private final Relay<Object, Object> _bus = PublishRelay.create().toSerialized();
-    SerializedSubject allBus;
+    private ConcurrentHashMap<String, FlowableProcessor> subjectMapper = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Type, CopyOnWriteArrayList<FlowableEmitter<?>>> classFlowableEmitter = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Type, Disposable> typeOfDisposable = new ConcurrentHashMap<>();
+    FlowableProcessor allBus;
+
     // 单例RxBus
     public static RxBus getDefault() {
         RxBus rxBus = instance;
@@ -46,121 +60,119 @@ public class RxBus {
     }
 
     private RxBus() {
-        allBus = new SerializedSubject<>(PublishSubject.create());
+        allBus = PublishProcessor.create().toSerialized();
     }
 
-    private ConcurrentHashMap<String, Subject> subjectMapper = new ConcurrentHashMap<>();
-
-    public <T> Observable<T> register( @NonNull Class<T> clazz) {
+    public <T> Flowable<T> register(@NonNull Class<T> clazz) {
         return toObserverable(clazz);
     }
 
 
 
-    private ConcurrentHashMap<Class<?>, CopyOnWriteArrayList<Subscriber<?>>> subscribermaps = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<Class<?>, Subscriber<?>> typeOfSubscriber = new ConcurrentHashMap<>();
-    public <T> Observable<T> registerObservable(Class<T> clazz){
-        Subscriber<T> clazzSubscriber = (Subscriber<T>) typeOfSubscriber.get(clazz);
-        if(clazzSubscriber ==null){
-            clazzSubscriber = new Subscriber<T>() {
-                @Override
-                public void onCompleted() {
-                    final CopyOnWriteArrayList<Subscriber<?>> subscribers = subscribermaps.get(clazz);
-                    Subscriber lastsubscriber = subscribers.get(subscribers.size() - 1);
-                    lastsubscriber.onCompleted();
-                }
 
-                @Override
-                public void onError(Throwable e) {
-                    final CopyOnWriteArrayList<Subscriber<?>> subscribers = subscribermaps.get(clazz);
-                    Subscriber lastsubscriber = subscribers.get(subscribers.size() - 1);
-                    lastsubscriber.onError(e);
-                }
+    public <T> Flowable<T> registerObservable(Class<T> clazz) {
+        Disposable clazzDisposable = typeOfDisposable.get(clazz);
+        if (clazzDisposable == null) {
 
+            Disposable disposable = toObserverable(clazz).subscribe(new Consumer<T>() {
                 @Override
-                public void onNext(T t) {
+                public void accept(T t) throws Exception {
+                    final CopyOnWriteArrayList<FlowableEmitter<?>> subscribers = classFlowableEmitter.get(clazz);
+                    FlowableEmitter lastsubscriber = subscribers.get(subscribers.size() - 1);
                     try {
-                        final CopyOnWriteArrayList<Subscriber<?>> subscribers = subscribermaps.get(clazz);
-                        Subscriber lastsubscriber = subscribers.get(subscribers.size() - 1);
                         lastsubscriber.onNext(t);
                     } catch (Throwable e) {
-                        Exceptions.throwOrReport(e, this, t);
+                        Exceptions.throwIfFatal(e);
+
+                        try {
+                            lastsubscriber.onError(e);
+                        } catch (Exception excep) {
+                            Exceptions.throwIfFatal(e);
+                            // can't call onError because no way to know if a Subscription has been set or not
+                            // can't call onSubscribe because the call might have set a Subscription already
+                            RxJavaPlugins.onError(excep);
+
+                            NullPointerException npe = new NullPointerException("Actually not, but can't throw other exceptions due to RS");
+                            npe.initCause(excep);
+                            throw npe;
+                        }
+
                     }
                 }
-
-            };
-            toObserverable(clazz).subscribe(clazzSubscriber);
-            typeOfSubscriber.put(clazz,clazzSubscriber);
-
-
+            });
+            typeOfDisposable.put(clazz, disposable);
         }
-        final Subscriber liftSubscriber = clazzSubscriber;
-        return Observable.unsafeCreate(new Observable.OnSubscribe<T>() {
+        final Disposable liftSubscriber = clazzDisposable;
+        return Flowable.create(new FlowableOnSubscribe<T>() {
 
             @Override
-            public void call(Subscriber<? super T> subscriber) {
-                subscriber.add(Subscriptions.create(new Action0() {
+            public void subscribe(@io.reactivex.annotations.NonNull FlowableEmitter<T> e) throws Exception {
+                e.setCancellable(new Cancellable() {
                     @Override
-                    public void call() {
-                        final CopyOnWriteArrayList<Subscriber<?>> subscribers = subscribermaps.get(clazz);
-                        subscribers.remove(subscriber);
-                        if(subscribers.isEmpty()){
-                            liftSubscriber.unsubscribe();
-                            typeOfSubscriber.remove(clazz);
+                    public void cancel() throws Exception {
+                        final CopyOnWriteArrayList<FlowableEmitter<?>> subscribers = classFlowableEmitter.get(clazz);
+                        subscribers.remove(e);
+                        if (subscribers.isEmpty()) {
+                            if (!liftSubscriber.isDisposed()) {
+                                liftSubscriber.dispose();
+                            }
+                            typeOfDisposable.remove(clazz);
                         }
                     }
-                }));
-                CopyOnWriteArrayList<Subscriber<?>> subscribers = subscribermaps.get(clazz);
-                if(subscribers ==null){
-                    subscribers = new CopyOnWriteArrayList<Subscriber<?>>();
-                    subscribermaps.put(clazz,subscribers);
+                });
+                CopyOnWriteArrayList<FlowableEmitter<?>> subscribers = classFlowableEmitter.get(clazz);
+                if (subscribers == null) {
+                    subscribers = new CopyOnWriteArrayList<FlowableEmitter<?>>();
+                    classFlowableEmitter.put(clazz, subscribers);
 
                 }
-                subscribers.add(subscriber);
+                subscribers.add(e);
             }
-        });
+        }, BackpressureStrategy.BUFFER);
 
     }
 
 
-    public <T> Observable<T> toObserverable (Class<T> eventType) {
+    public <T> Flowable<T> toObserverable(Class<T> eventType) {
         return allBus.ofType(eventType);
     }
-    public void unregister(@NonNull String tag, @NonNull Subscription subscription) {
-        Subject subjects = subjectMapper.get(tag);
-        if (null != subjects) {
-            if (!subjects.hasObservers()) {
+
+    public void unregister(@NonNull String tag, @NonNull Disposable disposable) {
+        FlowableProcessor processor = subjectMapper.get(tag);
+        if (null != processor) {
+            if (!processor.hasSubscribers() && subjectMapper.size() > 16) {
                 subjectMapper.remove(tag);
             }
         }
-        if(!subscription.isUnsubscribed()){
-            subscription.unsubscribe();
+        if (!disposable.isDisposed()) {
+            disposable.isDisposed();
         }
 
         if (DEBUG) Log.d(TAG, "[unregister]subjectMapper: " + subjectMapper);
     }
 
 
-
-    public <T> Observable<T> register(@NonNull String tag, @NonNull Class<T> clazz) {
-        Subject subject = subjectMapper.get(tag);
+    public <T> Flowable<T> register(@NonNull String tag, @NonNull Class<T> clazz) {
+        FlowableProcessor subject = subjectMapper.get(tag);
         if (null == subject) {
-            subject = new SerializedSubject<>(PublishSubject.create());
+            subject = PublishProcessor.create().toSerialized();
             subjectMapper.put(tag, subject);
         }
         if (DEBUG) Log.d(TAG, "[register]subjectMapper: " + subjectMapper);
         return subject.ofType(clazz);
     }
+
     @SuppressWarnings("unchecked")
     public void post(@NonNull String tag, @NonNull Object content) {
-        Subject subject = subjectMapper.get(tag);
-        if (subject!=null && subject.hasObservers()) {
+        FlowableProcessor subject = subjectMapper.get(tag);
+        if (subject != null && subject.hasSubscribers()) {
             subject.onNext(content);
-        }else{
-            if (DEBUG) Log.d(TAG, "[send]subjectMapper: failed non regist this type event" );
+        } else {
+            if (DEBUG) Log.d(TAG, "[send]subjectMapper: failed non regist this type event");
         }
         if (DEBUG) Log.d(TAG, "[send]subjectMapper: " + subjectMapper);
     }
+
     public void post(@NonNull Object content) {
 //        post(content.getClass().getName(), content);
         allBus.onNext(content);
@@ -172,7 +184,7 @@ public class RxBus {
      * @param lifecycleTransformer rxlifecycle
      * @return
      */
-    public <T> Observable<Object> toObserverable(Class<T> clazz,LifecycleTransformer lifecycleTransformer){
+    public <T> Flowable<Object> toObserverable(Class<T> clazz, LifecycleTransformer<T> lifecycleTransformer) {
         return toObserverable(clazz).compose(lifecycleTransformer);
     }
 
@@ -182,7 +194,69 @@ public class RxBus {
      * @param lifecycleTransformer rxlifecycle
      * @return
      */
-    public <T> Observable<Object> toMainThreadObserverable(Class<T> clazz,LifecycleTransformer lifecycleTransformer){
+    public <T> Flowable<T> toMainThreadObserverable(Class<T> clazz, LifecycleTransformer<T> lifecycleTransformer) {
         return toObserverable(clazz).observeOn(AndroidSchedulers.mainThread()).compose(lifecycleTransformer);
+    }
+    private void test() {
+        Flowable.just(true).subscribe(new FlowableSubscriber<Boolean>() {
+            @Override
+            public void onSubscribe(@io.reactivex.annotations.NonNull Subscription s) {
+                s.request(Integer.MAX_VALUE);
+                s.cancel();
+            }
+
+            @Override
+            public void onNext(Boolean aBoolean) {
+
+            }
+
+            @Override
+            public void onError(Throwable t) {
+
+            }
+
+            @Override
+            public void onComplete() {
+
+            }
+        });
+        Observable.just(1).subscribe(new Observer<Integer>() {
+            @Override
+            public void onSubscribe(@io.reactivex.annotations.NonNull Disposable d) {
+            }
+
+            @Override
+            public void onNext(@io.reactivex.annotations.NonNull Integer integer) {
+
+            }
+
+            @Override
+            public void onError(@io.reactivex.annotations.NonNull Throwable e) {
+
+            }
+
+            @Override
+            public void onComplete() {
+
+            }
+        });
+        Flowable.create(new FlowableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(@io.reactivex.annotations.NonNull FlowableEmitter<Integer> e) throws Exception {
+                e.onNext(1);
+            }
+        }, BackpressureStrategy.BUFFER).subscribe(new Consumer<Integer>() {
+            @Override
+            public void accept(Integer integer) throws Exception {
+
+            }
+        });
+        Flowable.unsafeCreate(new Publisher<Integer>() {
+            @Override
+            public void subscribe(Subscriber<? super Integer> s) {
+                s.onNext(1);
+            }
+        }).subscribeOn(Schedulers.io());
+
     }
 }

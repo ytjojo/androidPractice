@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
@@ -19,9 +18,6 @@ import com.orhanobut.logger.Logger;
 import com.ytjojo.fragmentstack.AnimateOnHWLayerIfNeededListener;
 import com.ytjojo.fragmentstack.LaunchMode;
 
-import rx.Observable;
-import rx.functions.Func1;
-import rx.subjects.PublishSubject;
 
 /**
  * Created by Administrator on 2016/4/16 0016.
@@ -302,35 +298,6 @@ public abstract class BaseFragment extends Fragment {
         return null;
     }
 
-    protected final PublishSubject<FragmentEvent> lifecycleSubject = PublishSubject.create();
-    //监听Frament声明周期，当Fragment销毁后，停止网络请求
-    @NonNull
-    public <T> Observable.Transformer<T, T> bindUntilEvent(@NonNull final FragmentEvent event) {
-        return new Observable.Transformer<T, T>() {
-            @Override
-            public Observable<T> call(Observable<T> sourceObservable) {
-                Observable<FragmentEvent> compareLifecycleObservable =
-                        lifecycleSubject.takeFirst(new Func1<FragmentEvent, Boolean>() {
-                            @Override
-                            public Boolean call(FragmentEvent activityLifeCycleEvent) {
-                                return activityLifeCycleEvent.equals(event);
-                            }
-                        });
-                return sourceObservable.takeUntil(compareLifecycleObservable);
-            }
-        };
-    }
-    public enum FragmentEvent {
-        ATTACH,
-        CREATE,
-        CREATE_VIEW,
-        START,
-        RESUME,
-        PAUSE,
-        STOP,
-        DESTROY_VIEW,
-        DESTROY,
-        DETACH
-    }
+
 
 }

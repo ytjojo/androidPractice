@@ -14,12 +14,14 @@ import com.bumptech.glide.request.target.SimpleTarget;
 import com.bumptech.glide.request.target.Target;
 import com.bumptech.glide.util.Util;
 
+import org.reactivestreams.Subscriber;
+
 import java.io.File;
 import java.lang.ref.WeakReference;
+import java.util.function.Consumer;
 
-import rx.Observable;
-import rx.Subscriber;
-import rx.functions.Action1;
+import io.reactivex.Observable;
+
 
 /**
  * Created by Administrator on 2016/4/5 0005.
@@ -275,14 +277,14 @@ public class ImageLoaderImpl<T> implements ImageLoader {
             @Override
             public boolean onException(Exception e, Object model, Target<Bitmap> target, boolean isFirstResource) {
                 bitmapSubscriber.onError(e);
-                bitmapSubscriber.onCompleted();
+                bitmapSubscriber.onComplete();
                 return false;
             }
 
             @Override
             public boolean onResourceReady(Bitmap resource, Object model, Target<Bitmap> target, boolean isFromMemoryCache, boolean isFirstResource) {
                 bitmapSubscriber.onNext(resource);
-                bitmapSubscriber.onCompleted();
+                bitmapSubscriber.onComplete();
                 return false;
             }
         });
@@ -290,11 +292,11 @@ public class ImageLoaderImpl<T> implements ImageLoader {
     }
 
     @Override
-    public void subject(final Action1<Bitmap> bitmapAction1) {
+    public void subject(final Consumer<Bitmap> bitmapAction1) {
         SimpleTarget<Bitmap> simpleTarget = new SimpleTarget<Bitmap>() {
             @Override
             public void onResourceReady(Bitmap bitmap, GlideAnimation anim) {
-                bitmapAction1.call(bitmap);
+                bitmapAction1.accept(bitmap);
             }
         };
         BitmapTypeRequest<?> urlRequest = null;

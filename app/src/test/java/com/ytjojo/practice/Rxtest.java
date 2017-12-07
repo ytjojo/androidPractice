@@ -7,12 +7,17 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
-import rx.Observable;
-import rx.Subscriber;
-import rx.Subscription;
-import rx.functions.Action1;
-import rx.functions.Func1;
-import rx.schedulers.Schedulers;
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.ObservableSource;
+import io.reactivex.Observer;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
+
 
 /**
  * Created by Administrator on 2017/8/7 0007.
@@ -38,15 +43,21 @@ public class Rxtest {
 //                    }
 //                })
                 .observeOn(Schedulers.newThread())
-                .subscribe(new Subscriber<Integer>() {
-                    @Override
-                    public void onCompleted() {
-                        System.out.println( "onCompleted--" + Thread.currentThread().getName());
-                    }
+                .subscribe(new Observer<Integer>() {
 
                     @Override
                     public void onError(Throwable e) {
                         e.printStackTrace();
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        System.out.println( "onCompleted--" + Thread.currentThread().getName());
+                    }
+
+                    @Override
+                    public void onSubscribe(@NonNull Disposable d) {
+
                     }
 
                     @Override
@@ -62,33 +73,32 @@ public class Rxtest {
     }
 
     public Observable<Integer> getObservable() {
-        return Observable.unsafeCreate(new Observable.OnSubscribe<Integer>() {
+        return Observable.create(new ObservableOnSubscribe<Integer>() {
             @Override
-            public void call(Subscriber<? super Integer> subscriber) {
-//                subscriber.onNext(1);
-//                subscriber.onNext(2);
-//                subscriber.onNext(3);
+            public void subscribe(@NonNull ObservableEmitter<Integer> e) throws Exception {
+                //                subscriber.onNext(1);
+//                e.onNext(2);
+//                e.onNext(3);
                 System.out.println("call");
                 System.out.println( "currentThread--" + Thread.currentThread().getName());
-//                subscriber.onError(new NullPointerException());
-                subscriber.onError(new IllegalArgumentException());
-                subscriber.onCompleted();
-
+//                e.onError(new NullPointerException());
+                e.onError(new IllegalArgumentException());
+                e.onComplete();
             }
         });
     }
 
-    public static Func1<Observable<? extends Throwable>, Observable<?>> getRetryFunc1() {
-        return new Func1<Observable<? extends Throwable>, Observable<?>>() {
+    public static Function<Observable<? extends Throwable>, Observable<?>> getRetryFunc1() {
+        return new Function<Observable<? extends Throwable>, Observable<?>>() {
             private int retryDelaySecond = 5;
             private int retryCount = 0;
             private int maxRetryCount = 3;
 
             @Override
-            public Observable<?> call(Observable<? extends Throwable> observable) {
-                return observable.flatMap(new Func1<Throwable, Observable<?>>() {
+            public Observable<?> apply(Observable<? extends Throwable> observable) {
+                return observable.flatMap(new Function<Throwable, ObservableSource<?>>() {
                     @Override
-                    public Observable<?> call(Throwable throwable) {
+                    public Observable<?> apply(Throwable throwable) {
                         return checkApiError(throwable);
                     }
                 });
@@ -125,34 +135,34 @@ public class Rxtest {
 
     @Test
     public void Rxbustext(){
-        Subscription s1 = RxBus.getDefault().registerObservable(Integer.class).subscribe(new Action1<Integer>() {
+        Disposable s1 = RxBus.getDefault().registerObservable(Integer.class).subscribe(new Consumer<Integer>() {
             @Override
-            public void call(Integer integer) {
+            public void accept(Integer integer) {
                 System.out.println(integer+" s 1");
             }
         });
-        Subscription s2 =RxBus.getDefault().registerObservable(Integer.class).subscribe(new Action1<Integer>() {
+        Disposable s2 =RxBus.getDefault().registerObservable(Integer.class).subscribe(new Consumer<Integer>() {
             @Override
-            public void call(Integer integer) {
+            public void accept(Integer integer) {
                 System.out.println(integer+" s 2");
             }
         });
-       Subscription s3 = RxBus.getDefault().registerObservable(Integer.class).subscribe(new Action1<Integer>() {
+        Disposable s3 = RxBus.getDefault().registerObservable(Integer.class).subscribe(new Consumer<Integer>() {
             @Override
-            public void call(Integer integer) {
+            public void accept(Integer integer) {
                 System.out.println(integer+" s 3");
             }
         });
-        RxBus.getDefault().registerObservable(Integer.class).subscribe( new Action1<Integer>() {
+        RxBus.getDefault().registerObservable(Integer.class).subscribe( new Consumer<Integer>() {
             @Override
-            public void call(Integer integer) {
+            public void accept(Integer integer) {
                 System.out.println(integer+" s 4");
             }
         });
 
-        RxBus.getDefault().registerObservable(Integer.class).subscribe( new Action1<Integer>() {
+        RxBus.getDefault().registerObservable(Integer.class).subscribe( new Consumer<Integer>() {
             @Override
-            public void call(Integer integer) {
+            public void accept(Integer integer) {
                 System.out.println(integer+" s 5");
             }
         });

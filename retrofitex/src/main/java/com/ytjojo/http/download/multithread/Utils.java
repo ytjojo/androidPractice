@@ -17,7 +17,6 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 import retrofit2.Response;
-import rx.Subscription;
 
 class Utils {
     static String longToGMT(long lastModify) {
@@ -43,11 +42,6 @@ class Utils {
         }
     }
 
-    static void unSubscribe(Subscription subscription) {
-        if (subscription != null && !subscription.isUnsubscribed()) {
-            subscription.unsubscribe();
-        }
-    }
 
     static String lastModify(Response<?> response) {
         return response.headers().get("Last-Modified");

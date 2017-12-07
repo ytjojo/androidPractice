@@ -1,78 +1,142 @@
 package com.ytjojo.rx;
 
-import rx.Observable;
-import rx.Scheduler;
-import rx.Subscriber;
-import rx.functions.Action0;
-import rx.functions.Action1;
-import rx.internal.schedulers.ImmediateScheduler;
-import rx.internal.schedulers.TrampolineScheduler;
-import rx.schedulers.Schedulers;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+
+import io.reactivex.FlowableOperator;
+import io.reactivex.FlowableSubscriber;
+import io.reactivex.Scheduler;
+import io.reactivex.internal.subscriptions.SubscriptionHelper;
+import io.reactivex.internal.util.BackpressureHelper;
+import io.reactivex.schedulers.Schedulers;
 
 /**
  * Created by Administrator on 2016/11/10 0010.
  */
-public class DoAsync <T> implements Observable.Operator<T,T> {
-    final Action1<T> action;
+public class DoAsync <T> implements FlowableOperator<T,T> {
+    final Consumer<T> action;
     final Scheduler scheduler;
-    public DoAsync(Scheduler scheduler,Action1 action){
+    public DoAsync(Scheduler scheduler,Consumer action){
         this.scheduler =scheduler;
         this.action = action;
     }
-    public DoAsync(Action1 action){
+    public DoAsync(Consumer action){
         this.scheduler = Schedulers.io();
         this.action = action;
     }
     @Override
-    public Subscriber<? super T> call(Subscriber<? super T> child) {
+    public Subscriber<? super T> apply(Subscriber<? super T> s) {
 
-        final Scheduler.Worker worker = scheduler.createWorker();
-        DoAsyncSubscriber<T> subscriber = new DoAsyncSubscriber<>(scheduler,action,worker,child);
-        child.add(subscriber);
-        child.add(worker);
-        return  subscriber;
+        Scheduler.Worker w = scheduler.createWorker();
+        final SubscribeOnSubscriber<T> sos = new SubscribeOnSubscriber<T>(s, w);
+        w.schedule(sos);
+        return sos;
     }
-    static final class DoAsyncSubscriber<T> extends Subscriber<T> implements Action0 {
-        T value;
-        final Scheduler scheduler;
+    static final class SubscribeOnSubscriber<T> extends AtomicReference<Thread>
+            implements FlowableSubscriber<T>, Subscription, Runnable {
+
+        private static final long serialVersionUID = 8094547886072529208L;
+
+        final Subscriber<? super T> actual;
+
         final Scheduler.Worker worker;
-        final Action1<T> action;
-        final Subscriber<? super T> child;
-        public DoAsyncSubscriber(Scheduler scheduler,Action1<T> action,Scheduler.Worker worker,Subscriber<? super T> child){
-            this.action = action;
-            this.scheduler = scheduler;
+
+        final AtomicReference<Subscription> s;
+
+        final AtomicLong requested;
+
+
+
+        SubscribeOnSubscriber(Subscriber<? super T> actual, Scheduler.Worker worker) {
+            this.actual = actual;
             this.worker = worker;
-            this.child = child;
-        }
-        @Override
-        public void call() {
-            action.call(value);
+            this.s = new AtomicReference<Subscription>();
+            this.requested = new AtomicLong();
         }
 
         @Override
-        public void onCompleted() {
-            child.onCompleted();
+        public void run() {
+            lazySet(Thread.currentThread());
+            actual.onSubscribe(this);
         }
 
         @Override
-        public void onError(Throwable e) {
-            child.onError(e);
+        public void onSubscribe(Subscription s) {
+            if (SubscriptionHelper.setOnce(this.s, s)) {
+                long r = requested.getAndSet(0L);
+                if (r != 0L) {
+                    requestUpstream(r, s);
+                }
+            }
         }
 
         @Override
         public void onNext(T t) {
-            value = t;
-            boolean called = false;
-            if (scheduler instanceof ImmediateScheduler || scheduler instanceof TrampolineScheduler) {
-                //  execute directly
-                call();
-                called = true;
+            actual.onNext(t);
+        }
+
+        @Override
+        public void onError(Throwable t) {
+            actual.onError(t);
+            worker.dispose();
+        }
+
+        @Override
+        public void onComplete() {
+            actual.onComplete();
+            worker.dispose();
+        }
+
+        @Override
+        public void request(final long n) {
+            if (SubscriptionHelper.validate(n)) {
+                Subscription s = this.s.get();
+                if (s != null) {
+                    requestUpstream(n, s);
+                } else {
+                    BackpressureHelper.add(requested, n);
+                    s = this.s.get();
+                    if (s != null) {
+                        long r = requested.getAndSet(0L);
+                        if (r != 0L) {
+                            requestUpstream(r, s);
+                        }
+                    }
+                }
             }
-            child.onNext(t);
-            if(!called){
-               worker.schedule(this);
+        }
+
+        void requestUpstream(final long n, final Subscription s) {
+            if ( Thread.currentThread() == get()) {
+                s.request(n);
+            } else {
+                worker.schedule(new Request(s, n));
+            }
+        }
+
+        @Override
+        public void cancel() {
+            SubscriptionHelper.cancel(s);
+            worker.dispose();
+        }
+
+        static final class Request implements Runnable {
+            private final Subscription s;
+            private final long n;
+
+            Request(Subscription s, long n) {
+                this.s = s;
+                this.n = n;
             }
 
+            @Override
+            public void run() {
+                s.request(n);
+            }
         }
     }
 }

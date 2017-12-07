@@ -4,35 +4,53 @@ import android.os.SystemClock;
 
 import com.ytjojo.http.download.multithread.Manager;
 import com.ytjojo.http.download.multithread.ProgressInfo;
-import com.ytjojo.rx.SourceGenerator;
 
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.ObservableSource;
+import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.functions.Cancellable;
+import io.reactivex.functions.Function;
 import okhttp3.ResponseBody;
-import rx.Observable;
-import rx.Subscriber;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Func1;
 
 /**
  * Created by Administrator on 2016/11/11 0011.
  */
-public class ResponseMapper  implements Func1<ResponseBody,File> {
+public class ResponseMapper  implements Function<ResponseBody,File> {
     final String mAbsDir;
     final String mFileName;
-    SourceGenerator<ProgressInfo> mGenerator = new SourceGenerator<ProgressInfo>(){
-        @Override
-        public void onStart() {
+    ObservableEmitter<ProgressInfo> mGenerator ;
+    public void subscribe(Observer<ProgressInfo> subscriber){
 
-        }
-    };
-    public void subscribe(Subscriber<ProgressInfo> subscriber){
-        Observable.unsafeCreate(mGenerator).sample(30, TimeUnit.MILLISECONDS).observeOn(AndroidSchedulers.mainThread()).subscribe(subscriber);
+
+        Observable.defer(new Callable<ObservableSource<ProgressInfo>>() {
+            @Override
+            public ObservableSource<ProgressInfo> call() throws Exception {
+                return Observable.create(new ObservableOnSubscribe<ProgressInfo>() {
+                    @Override
+                    public void subscribe(@NonNull ObservableEmitter<ProgressInfo> e) throws Exception {
+                        mGenerator = e;
+                        e.setCancellable(new Cancellable() {
+                            @Override
+                            public void cancel() throws Exception {
+                                mGenerator = null;
+                            }
+                        });
+                    }
+                });
+            }
+        }).sample(30, TimeUnit.MILLISECONDS).observeOn(AndroidSchedulers.mainThread()).subscribe(subscriber);
     }
 
     public ResponseMapper(String absDir,String  fileName){
@@ -44,11 +62,13 @@ public class ResponseMapper  implements Func1<ResponseBody,File> {
     long contentLength;
     long lastTime;
     @Override
-    public File call(ResponseBody responseBody) {
+    public File apply(ResponseBody responseBody) {
         RandomAccessFile raf = null;
         contentLength = responseBody.contentLength();
         mProgressInfo = new ProgressInfo(0,contentLength, ProgressInfo.State.DOWNLOADING);
-        mGenerator.onNext(mProgressInfo);
+        if(mGenerator !=null){
+            mGenerator.onNext(mProgressInfo);
+        }
         lastTime = SystemClock.uptimeMillis();
         File target = null;
         try {
@@ -65,7 +85,9 @@ public class ResponseMapper  implements Func1<ResponseBody,File> {
                     mProgressInfo.bytesRead = offset;
                     mProgressInfo.contentLength = contentLength;
                     mProgressInfo.mState = ProgressInfo.State.DOWNLOADING;
-                    mGenerator.onNext(mProgressInfo);
+                    if(mGenerator !=null){
+                        mGenerator.onNext(mProgressInfo);
+                    }
                 }
                 File file = new File(mAbsDir,mFileName +Manager.S_FILECACHE_NAME);
                 target = new File(mAbsDir,mFileName);

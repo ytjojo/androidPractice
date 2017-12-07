@@ -1,6 +1,6 @@
 package com.ytjojo.rx;
 
-import com.trello.rxlifecycle.LifecycleTransformer;
+import com.trello.rxlifecycle2.LifecycleTransformer;
 import com.ytjojo.http.exception.AuthException;
 import com.ytjojo.http.exception.TokenInvalidException;
 
@@ -11,11 +11,13 @@ import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
+import io.reactivex.ObservableTransformer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 import retrofit2.HttpException;
-import rx.Observable;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Func1;
-import rx.schedulers.Schedulers;
 
 /**
  * Created by Administrator on 2017/8/19 0019.
@@ -23,17 +25,17 @@ import rx.schedulers.Schedulers;
 
 public class RxHttpHelper {
 
-    public static Func1<Observable<? extends Throwable>, Observable<?>> getRetryFunc1() {
-        return new Func1<Observable<? extends Throwable>, Observable<?>>() {
+    public static Function<Observable<? extends Throwable>, Observable<?>> getRetryFunc1() {
+        return new Function<Observable<? extends Throwable>, Observable<?>>() {
             private int retryDelaySecond = 5;
             private int retryCount = 0;
             private int maxRetryCount = 1;
 
             @Override
-            public Observable<?> call(Observable<? extends Throwable> observable) {
-                return observable.flatMap(new Func1<Throwable, Observable<?>>() {
+            public Observable<?> apply(Observable<? extends Throwable> observable) {
+                return observable.flatMap(new Function<Throwable, ObservableSource<?>>() {
                     @Override
-                    public Observable<?> call(Throwable throwable) {
+                    public ObservableSource<?> apply(Throwable throwable) {
                         return checkApiError(throwable);
                     }
                 });
@@ -94,10 +96,10 @@ public class RxHttpHelper {
         };
     }
 
-    public static <T> Observable.Transformer<T, T> applySchedulers() {
-        return new Observable.Transformer<T, T>() {
+    public static <T> ObservableTransformer<T, T> applySchedulers() {
+        return new ObservableTransformer<T, T>() {
             @Override
-            public Observable<T> call(Observable<T> observable) {
+            public ObservableSource<T> apply(Observable<T> observable) {
                 return observable.subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread()).retryWhen(getRetryFunc1());
 
@@ -105,19 +107,19 @@ public class RxHttpHelper {
         };
     }
 
-    public static <T> Observable.Transformer<T, T> applySchedulers(final LifecycleTransformer transformer, Class<T> tClass) {
-        return new Observable.Transformer<T, T>() {
+    public static <T> ObservableTransformer<T, T> applySchedulers(final LifecycleTransformer transformer, Class<T> tClass) {
+        return new ObservableTransformer<T, T>() {
             @Override
-            public Observable<T> call(Observable<T> observable) {
+            public Observable<T> apply(Observable<T> observable) {
                 return observable.subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread()).retryWhen(getRetryFunc1()).compose(transformer);
             }
         };
     }
-    public static <T> Observable.Transformer<T, T> applySchedulers(final LifecycleTransformer<T> transformer) {
-        return new Observable.Transformer<T, T>() {
+    public static <T> ObservableTransformer<T, T> applySchedulers(final LifecycleTransformer<T> transformer) {
+        return new ObservableTransformer<T, T>() {
             @Override
-            public Observable<T> call(Observable<T> observable) {
+            public Observable<T> apply(Observable<T> observable) {
                 return observable.subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread()).retryWhen(getRetryFunc1()).compose(transformer);
             }

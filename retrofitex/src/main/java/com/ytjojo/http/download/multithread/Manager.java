@@ -7,7 +7,7 @@ import com.ytjojo.http.download.ResponseMapper;
 import com.ytjojo.http.subscriber.RetryWhenNetworkException;
 import com.ytjojo.http.util.CollectionUtils;
 import com.ytjojo.http.util.TextUtils;
-import com.ytjojo.rx.SourceGenerator;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -19,21 +19,29 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Cancellable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import rx.Observable;
-import rx.Subscriber;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Action1;
-import rx.schedulers.Schedulers;
+
+import static io.reactivex.plugins.RxJavaPlugins.onError;
 
 /**
  * Created by Administrator on 2016/11/12 0012.
  */
-public class Manager extends SourceGenerator<ProgressInfo> {
+public class Manager{
 
     public final int MAX_THREAD_COUNT = 3;
     public final int MIN_BLOCK_PERTASK = 1024 * 1024;
@@ -42,7 +50,6 @@ public class Manager extends SourceGenerator<ProgressInfo> {
     final String mExpectName;
     String mFileName;
     final String remoteUrl;
-    //    private int taskCount;
     long mContentLength;
     CountDownLatch mCountDownLatch;
     ProgressHandler progressHandler;
@@ -56,29 +63,35 @@ public class Manager extends SourceGenerator<ProgressInfo> {
         progressHandler = new ProgressHandler(this);
     }
 
-    public void reStart(){
-        if(!mStateSubscriber.isUnsubscribed()){
-            mStateSubscriber.unsubscribe();
-        }
-        if(!isStarted()&& mStateSubscriber.isUnsubscribed()){
-            subscribe(this,mStateSubscriber);
+    public void reStart(Observer<ProgressInfo> observer){
+        if(!isDonwLoading()){
+            subscribe(this,observer);
             progressHandler.mSignal = ProgressHandler.AsyncAction.STARTED;
             progressHandler.mAtomicLong.set(1);
-          ;
         }
     }
     private void postFinishOrStop(){
 
         ProgressInfo info = progressHandler.getCurProgressInfo();
-        info.mState = ProgressInfo.State.DOWNLOADING;
-        onNext(info);
-        info.mState = progressHandler.isDownloadFinish()? ProgressInfo.State.FINISHED: ProgressInfo.State.STOPE;
-        onNext(info);
+        mProgresDisposable.dispose();
+        boolean isFinish = progressHandler.isDownloadFinish();
+        info.mState = isFinish? ProgressInfo.State.FINISHED: ProgressInfo.State.STOPE;
+        if(!isFinish){
+            progressHandler.mAtomicLong.set(0);
+        }
+        mStateSubscriber.onNext(info);
+        mStateSubscriber.onComplete();
     }
 
     public synchronized void stop(){
         progressHandler.mSignal = ProgressHandler.AsyncAction.STOPE;
+        onCancel();
 
+    }
+    public void onCancel(){
+        if(mProgresDisposable !=null && !mProgresDisposable.isDisposed()){
+            mProgresDisposable.dispose();
+        }
     }
     public synchronized boolean isConnecting(){
         return progressHandler.mAtomicLong.get()==1;
@@ -157,7 +170,6 @@ public class Manager extends SourceGenerator<ProgressInfo> {
         }
     }
 
-    @Override
     public void onStart() {
         try {
             call();
@@ -165,10 +177,10 @@ public class Manager extends SourceGenerator<ProgressInfo> {
             onError(e);
         }
     }
-
-    public File call() throws IOException {
+    Disposable mProgresDisposable;
+    private File call() throws IOException {
         reset();
-        onNext(new ProgressInfo(0,0, ProgressInfo.State.CONNECT));
+        mStateSubscriber.onNext(new ProgressInfo(0,0, ProgressInfo.State.CONNECT));
         progressHandler.mAtomicLong.set(2);
         Response response = getOkHttpClient().newCall(getRequest()).execute();
         ResponseBody responseBody = response.body();
@@ -186,7 +198,7 @@ public class Manager extends SourceGenerator<ProgressInfo> {
         if (contentLength <= MIN_BLOCK_PERTASK * 1.5 || !isSurpportMultiThread(response)) {
             ResponseMapper mapper = new ResponseMapper(mAbsDir,mFileName);
             ResponseBody body = response.newBuilder().body(new ProgressResponseBody(responseBody, listener)).build().body();
-            return mapper.call(body);
+            return mapper.apply(body);
         }
 
         List<DownloadInfo> downloadInfos = getDownloadInfos(remoteUrl);
@@ -194,18 +206,19 @@ public class Manager extends SourceGenerator<ProgressInfo> {
             downloadInfos = new ArrayList<>();
         }
         if (CollectionUtils.isEmpty(downloadInfos)) {
-            excuteWithoutHistory(downloadInfos);
+            prepareWithoutHistory(downloadInfos);
         } else {
-            excuteWihtHistory(downloadInfos);
+            prepareWithHistory(downloadInfos);
         }
 
         progressHandler.setTaskInfos(downloadInfos);
-        dispatchTask(downloadInfos);
-        progressHandler.getProgress().subscribe(new Action1<ProgressInfo>() {
+        dispatchExcuteTask(downloadInfos);
+        mProgresDisposable = progressHandler.getProgress().subscribe(new Consumer<ProgressInfo>() {
             @Override
-            public void call(ProgressInfo progressInfo) {
-//                Logger.e(progressInfo.bytesRead+"read ");
-                Manager.this.onNext(progressInfo);
+            public void accept(ProgressInfo progressInfo) {
+                if(!mStateSubscriber.isDisposed()){
+                    Manager.this.mStateSubscriber.onNext(progressInfo);
+                }
             }
         });
         progressHandler.mAtomicLong.set(3);
@@ -227,7 +240,7 @@ public class Manager extends SourceGenerator<ProgressInfo> {
         Logger.e(mAbsDir + "  content " +contentLength );
         return new File(mAbsDir,mFileName);
     }
-    private void excuteWihtHistory(List<DownloadInfo> downloadInfos){
+    private void prepareWithHistory(List<DownloadInfo> downloadInfos){
         long expectLength = 0;
         for (DownloadInfo info : downloadInfos) {
             expectLength += info.getCompeleteSize();
@@ -246,7 +259,7 @@ public class Manager extends SourceGenerator<ProgressInfo> {
 
             deleteFile(targetFile);
             deleteFile(cacheFile);
-            excuteWithoutHistory(downloadInfos);
+            prepareWithoutHistory(downloadInfos);
         }
     }
     private void deleteFile(File file){
@@ -254,7 +267,7 @@ public class Manager extends SourceGenerator<ProgressInfo> {
             file.delete();
         }
     }
-    private void excuteWithoutHistory(List<DownloadInfo> downloadInfos) {
+    private void prepareWithoutHistory(List<DownloadInfo> downloadInfos) {
         if (CollectionUtils.isEmpty(downloadInfos)) {
             long count = mContentLength / MIN_BLOCK_PERTASK;
             if (count > MAX_THREAD_COUNT) {
@@ -287,7 +300,7 @@ public class Manager extends SourceGenerator<ProgressInfo> {
         }
     }
 
-    private void dispatchTask(List<DownloadInfo> infos) {
+    private void dispatchExcuteTask(List<DownloadInfo> infos) {
         ArrayList<DownloadTask> tasks = new ArrayList<>();
         int taskCount = 0;
         for (DownloadInfo info : infos) {
@@ -321,9 +334,6 @@ public class Manager extends SourceGenerator<ProgressInfo> {
         return false;
     }
 
-    public Request generateRequest() {
-        return null;
-    }
 
     public List<DownloadInfo> getDownloadInfos(String url) {
         return Dao.getInstance().getInfos(url);
@@ -361,59 +371,61 @@ public class Manager extends SourceGenerator<ProgressInfo> {
     }
 
     public void excuteTask(DownloadTask task, CountDownLatch countDownLatch) {
-//        Schedulers.io().createWorker().schedule(new Action0() {
-//            @Override
-//            public void call() {
-//                try{
-//                    task.execute(getOkHttpClient(), getRequest());
-//                }catch (Exception e){
-//
-//                }finally {
-//                    countDownLatch.countDown();
-//                }
-//
-//            }
-//        });
-        Observable.unsafeCreate(new SourceGenerator<Boolean>() {
+        Observable.create(new ObservableOnSubscribe<Boolean>() {
             @Override
-            public void onStart() {
+            public void subscribe(ObservableEmitter<Boolean> e) {
                 task.execute(getOkHttpClient(), getRequest());
-                this.onNext(task.isFinish());
+                if(!e.isDisposed()){
+                    e.onNext(task.isFinish());
+                    e.onComplete();
+                }
             }
         }).subscribeOn(Schedulers.io()).retryWhen(new RetryWhenNetworkException())
-                .subscribe(new Subscriber<Boolean>() {
-                    @Override
-                    public void onCompleted() {
-
-                    }
+                .subscribe(new Observer<Boolean>() {
 
                     @Override
                     public void onError(Throwable e) {
                         countDownLatch.countDown();
-                        this.unsubscribe();
                         Logger.e(e.toString() +"发生错误");
                     }
 
                     @Override
+                    public void onComplete() {
+
+                    }
+
+                    @Override
+                    public void onSubscribe(@NonNull Disposable d) {
+
+                    }
+
+                    @Override
                     public void onNext(Boolean finish) {
-                        this.unsubscribe();
                         countDownLatch.countDown();
                     }
                 });
     }
 
-    private void unsubscribe(Subscriber<?> subscriber) {
-        if (!subscriber.isUnsubscribed()) {
-            subscriber.unsubscribe();
-        }
-    }
-    Subscriber<ProgressInfo> mStateSubscriber;
-    public static void subscribe(Manager manager,Subscriber<ProgressInfo> subscriber){
-        manager.mStateSubscriber = subscriber;
-        Observable.unsafeCreate(manager)
-                .subscribeOn(Schedulers.io())
+    ObservableEmitter<ProgressInfo> mStateSubscriber;
+    public static void subscribe(Manager manager,Observer<ProgressInfo> subscriber){
+        Observable.create(new ObservableOnSubscribe<ProgressInfo>() {
+            @Override
+            public void subscribe(@NonNull ObservableEmitter<ProgressInfo> e) throws Exception {
+                manager.mStateSubscriber = e;
+                manager.onStart();
+                e.setCancellable(new Cancellable() {
+                    @Override
+                    public void cancel() throws Exception {
+                        manager.onCancel();
+                        manager.mStateSubscriber = null;
+                    }
+                });
+            }
+        }).subscribeOn(Schedulers.io())
                 .retryWhen(new RetryWhenNetworkException())
                 .observeOn(AndroidSchedulers.mainThread()).subscribe(subscriber);
+
+
     }
 
     public Request getRequest() {

@@ -27,7 +27,7 @@ import retrofit2.Converter;
 import retrofit2.MergeParameterHandler;
 import retrofit2.ProxyHandler;
 import retrofit2.Retrofit;
-import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 
 public class RetrofitClient {
     public static  final String ContentType_JSON = "application/json";
@@ -249,7 +249,7 @@ public class RetrofitClient {
             Retrofit  retrofit = new Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(okHttpClient)
-            .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
+            .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
             .addConverterFactory(factory)
             .build();
             RetrofitClient retrofitClient = new RetrofitClient(retrofit,headerInterceptor);

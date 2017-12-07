@@ -20,21 +20,23 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+
 import com.google.gson.JsonObject;
 import com.orhanobut.logger.Logger;
-import com.trello.rxlifecycle.android.ActivityEvent;
-import com.trello.rxlifecycle.components.support.RxAppCompatActivity;
 import com.ytjojo.domin.request.LoginRequest;
 import com.ytjojo.domin.response.OrganAddrArea;
 import com.ytjojo.domin.vo.LoginResponse;
 import com.ytjojo.http.GitApiInterface;
 import com.ytjojo.http.RetrofitClient;
 import com.ytjojo.practice.R;
-import com.ytjojo.rx.RxCreator;
+import com.ytjojo.rx.RxHttpHelper;
 import com.ytjojo.utils.DensityUtil;
-import rx.Subscriber;
 
-public class MainActivity extends RxAppCompatActivity {
+import io.reactivex.Observer;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.disposables.Disposable;
+
+public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,15 +71,15 @@ public class MainActivity extends RxAppCompatActivity {
 
 
         mDecorView = (ViewGroup) getWindow().getDecorView();
-        mContentView = ((ViewGroup)mDecorView.getChildAt(0));
+        mContentView = ((ViewGroup) mDecorView.getChildAt(0));
 
         mDecorView.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
             @Override
             public void onSystemUiVisibilityChange(int visibility) {
-                if ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0){
+                if ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
                     //systemUI is visible
 //                    mActionBar.show();
-                }else {
+                } else {
                     //systemUI is invisible
 //                    mActionBar.hide();
                 }
@@ -90,10 +92,10 @@ public class MainActivity extends RxAppCompatActivity {
             public void onClick(View v) {
                 testGetDic();
                 //testArray();
-                if ((mDecorView.getSystemUiVisibility() & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0){
+                if ((mDecorView.getSystemUiVisibility() & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
                     hideSystemUI();
 
-                }else {
+                } else {
                     showSystemUI();
                 }
             }
@@ -106,30 +108,36 @@ public class MainActivity extends RxAppCompatActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-//                        .setAction("Action", null).show();
-                Intent intent =new Intent(MainActivity.this, TestActivity.class);
-                startActivity(intent);
             }
         });
         login();
     }
+
     GitApiInterface mGitApiInterface;
-    public void setApi(GitApiInterface service){
+
+    public void setApi(GitApiInterface service) {
         mGitApiInterface = service;
     }
+
     private void login() {
         GitApiInterface gitApiInterface = RetrofitClient.getDefault().create(com.ytjojo.http.GitApiInterface.class);
         LoginRequest request = new LoginRequest();
-        gitApiInterface.loginAttr(request.uid,request.pwd,request.rid,request.forAccessToken).compose(RxCreator.applySchedulersIO()).subscribe(new Subscriber<LoginResponse>() {
+        gitApiInterface.loginAttr(request.uid, request.pwd, request.rid, request.forAccessToken).
+                compose(RxHttpHelper.applySchedulers()).subscribe(new Observer<LoginResponse>() {
+
             @Override
-            public void onCompleted() {
+            public void onError(Throwable e) {
+                Log.e("onError", e.getMessage());
+            }
+
+            @Override
+            public void onComplete() {
 
             }
 
             @Override
-            public void onError(Throwable e) {
-                Log.e("onError",e.getMessage());
+            public void onSubscribe(@NonNull Disposable d) {
+
             }
 
             @Override
@@ -141,103 +149,129 @@ public class MainActivity extends RxAppCompatActivity {
             }
         });
     }
+
     private void getAddrArea() {
         GitApiInterface gitApiInterface = RetrofitClient.getDefault().create(GitApiInterface.class);
         LoginRequest request = new LoginRequest();
-        gitApiInterface.getAddrArea(null,0)
-                .compose(RxCreator.applySchedulers(bindUntilEvent(ActivityEvent.DESTROY)))
-                .compose(bindUntilEvent(ActivityEvent.DESTROY))
-                .subscribe(new Subscriber<JsonObject>() {
-            @Override
-            public void onCompleted() {
+        gitApiInterface.getAddrArea(null, 0)
+                .compose(RxHttpHelper.applySchedulers())
+                .subscribe(new Observer<JsonObject>() {
 
-            }
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.e("onError", e.getMessage());
+                        e.printStackTrace();
+                        Log.e("onError", e.getMessage());
+                    }
 
-            @Override
-            public void onError(Throwable e) {
-                Log.e("onError",e.getMessage());
-                e.printStackTrace();
-                Log.e("onError",e.getMessage());
-            }
+                    @Override
+                    public void onComplete() {
 
-            @Override
-            public void onNext(JsonObject response) {
+                    }
 
-                Logger.e( response.toString());
-            }
-        });
+                    @Override
+                    public void onSubscribe(@NonNull Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(JsonObject response) {
+
+                        Logger.e(response.toString());
+                    }
+                });
     }
-    private void testGetDic(){
+
+    private void testGetDic() {
         GitApiInterface gitApiInterface = RetrofitClient.getDefault().create(GitApiInterface.class);
-        gitApiInterface.getHealthCardTypeDict1().compose(RxCreator.applySchedulers(bindUntilEvent(ActivityEvent.DESTROY)))
-                .subscribe(new Subscriber<Void>() {
-            @Override public void onCompleted() {
+        gitApiInterface.getHealthCardTypeDict1().compose(RxHttpHelper.applySchedulers())
+                .subscribe(new Observer<Void>() {
 
-            }
+                    @Override
+                    public void onError(Throwable e) {
+                        Logger.e("----------------getHealthCardTypeDict1" + e.getMessage());
+                    }
 
-            @Override public void onError(Throwable e) {
-                Logger.e("----------------getHealthCardTypeDict1" + e.getMessage());
-            }
+                    @Override
+                    public void onComplete() {
 
-            @Override public void onNext(Void  ss) {
-                Logger.e("----------------getHealthCardTypeDict1");
-            }
-        });
+                    }
+
+                    @Override
+                    public void onSubscribe(@NonNull Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Void ss) {
+                        Logger.e("----------------getHealthCardTypeDict1");
+                    }
+                });
     }
+
     long mBegin;
-    private void testArray(){
+
+    private void testArray() {
         mBegin = System.currentTimeMillis();
         GitApiInterface gitApiInterface = RetrofitClient.getDefault().create(GitApiInterface.class);
-        gitApiInterface.loginWithArray("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/*.jsonRequest",1).compose(RxCreator.applySchedulersIO()).subscribe(new Subscriber<OrganAddrArea>() {
-            @Override
-            public void onCompleted() {
-
-            }
+        gitApiInterface.loginWithArray("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/*.jsonRequest", 1).compose(RxHttpHelper.applySchedulers()).subscribe(new Observer<OrganAddrArea>() {
 
             @Override
             public void onError(Throwable e) {
                 e.printStackTrace();
-                Log.e("onError",e.getMessage());
+                Log.e("onError", e.getMessage());
+            }
+
+            @Override
+            public void onComplete() {
+
+            }
+
+            @Override
+            public void onSubscribe(@NonNull Disposable d) {
+
             }
 
             @Override
             public void onNext(OrganAddrArea organAddrArea) {
-                Logger.e(organAddrArea.addrArea + "   "+ organAddrArea.addrAreaText+((System.currentTimeMillis()-mBegin)));
+                Logger.e(organAddrArea.addrArea + "   " + organAddrArea.addrAreaText + ((System.currentTimeMillis() - mBegin)));
             }
         });
     }
 
-    public static void setStyle1(AppBarLayout appBarLayout,Toolbar toolbar){
+    public static void setStyle1(AppBarLayout appBarLayout, Toolbar toolbar) {
         int statusBarHeight = DensityUtil.getStatusBarHeight(toolbar.getContext());
         int toolBarHeight = DensityUtil.getToolbarHeight(toolbar.getContext());
-        if(appBarLayout.getChildCount()>1){
+        if (appBarLayout.getChildCount() > 1) {
             View statusHolder = appBarLayout.getChildAt(0);
             appBarLayout.removeView(statusHolder);
         }
         toolbar.getLayoutParams().height = toolBarHeight + statusBarHeight;
-        toolbar.setPadding(toolbar.getPaddingLeft(),statusBarHeight, toolbar.getPaddingRight(), toolbar.getPaddingBottom());
+        toolbar.setPadding(toolbar.getPaddingLeft(), statusBarHeight, toolbar.getPaddingRight(), toolbar.getPaddingBottom());
         appBarLayout.setFitsSystemWindows(false);
         toolbar.setFitsSystemWindows(false);
     }
-    public static void setStyle2(AppBarLayout appBarLayout,Toolbar toolbar){
+
+    public static void setStyle2(AppBarLayout appBarLayout, Toolbar toolbar) {
         int statusBarHeight = DensityUtil.getStatusBarHeight(toolbar.getContext());
         int toolBarHeight = DensityUtil.getToolbarHeight(toolbar.getContext());
-        if(appBarLayout.getChildCount()>1){
+        if (appBarLayout.getChildCount() > 1) {
             View statusHolder = appBarLayout.getChildAt(0);
             statusHolder.setFitsSystemWindows(true);
             statusHolder.getLayoutParams().height = statusBarHeight;
-        }else{
+        } else {
             View statusHolder = new View(toolbar.getContext());
-            AppBarLayout.LayoutParams params =new AppBarLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,statusBarHeight);
+            AppBarLayout.LayoutParams params = new AppBarLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, statusBarHeight);
             statusHolder.setFitsSystemWindows(true);
             statusHolder.setLayoutParams(params);
-            params.setScrollFlags(AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL| AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS);
-            appBarLayout.addView(statusHolder,0);
+            params.setScrollFlags(AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL | AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS);
+            appBarLayout.addView(statusHolder, 0);
         }
         toolbar.getLayoutParams().height = toolBarHeight;
         appBarLayout.setFitsSystemWindows(true);
         toolbar.setFitsSystemWindows(false);
     }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -254,12 +288,12 @@ public class MainActivity extends RxAppCompatActivity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
-            Intent intent =new Intent(this,DetailActivity.class);
+            Intent intent = new Intent(this, DetailActivity.class);
             startActivity(intent);
             return true;
         }
-        if(id == R.id.action_status){
-            Intent intent =new Intent(this,StatusBarActivity.class);
+        if (id == R.id.action_status) {
+            Intent intent = new Intent(this, StatusBarActivity.class);
             startActivity(intent);
         }
 
@@ -295,11 +329,12 @@ public class MainActivity extends RxAppCompatActivity {
     protected void onResumeFragments() {
         super.onResumeFragments();
     }
+
     private static final int INITIAL_DELAY = 1500;
     private ViewGroup mDecorView;
     private ActionBar mActionBar;
     private View mContentView;
-    private Handler handler = new Handler(){
+    private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             hideSystemUI();
@@ -317,28 +352,28 @@ public class MainActivity extends RxAppCompatActivity {
 //        }
     }
 
-    private void delayedHide(int delay){
+    private void delayedHide(int delay) {
         handler.removeMessages(0);
         handler.sendEmptyMessageDelayed(0, delay);
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    private void hideSystemUI(){
+    private void hideSystemUI() {
         mDecorView.setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE|
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                |View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                |View.SYSTEM_UI_FLAG_FULLSCREEN
-                |View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                |View.SYSTEM_UI_FLAG_IMMERSIVE);
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE);
         getWindow().setStatusBarColor(Color.RED);
     }
 
-    private void showSystemUI(){
+    private void showSystemUI() {
 //
         mDecorView.setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE|
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                |View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
     }
 }
