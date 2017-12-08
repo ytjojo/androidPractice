@@ -26,6 +26,7 @@ import com.ytjojo.http.exception.JsonException;
 import com.ytjojo.http.util.TextUtils;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Type;
 
 import okhttp3.ResponseBody;
@@ -34,6 +35,7 @@ import okio.Okio;
 import retrofit2.Converter;
 
 final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
+	public static Void DEFAULT_VOID_INSTIANCE;
 	public final int RESPONSE_DEFAULT_CODE = -200;
 	private final Gson mGson;
 	private final Type type;
@@ -68,7 +70,12 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 					return bodyJson!=null?(T)bodyJson.getAsString():null;
 				}
 				if (type == Void.class) {
-					return null;
+					if(DEFAULT_VOID_INSTIANCE ==null){
+						Constructor<?>[] cons = Void.class.getDeclaredConstructors();
+						cons[0].setAccessible(true);
+						DEFAULT_VOID_INSTIANCE = (Void) cons[0].newInstance(new Object[]{});
+					}
+					return (T) DEFAULT_VOID_INSTIANCE;
 				}
 				if (type == JsonObject.class) {
 					//如果返回结果是JSONObject则无需经过Gson

@@ -41,7 +41,7 @@ import static io.reactivex.plugins.RxJavaPlugins.onError;
 /**
  * Created by Administrator on 2016/11/12 0012.
  */
-public class Manager{
+public class Manager {
 
     public final int MAX_THREAD_COUNT = 3;
     public final int MIN_BLOCK_PERTASK = 1024 * 1024;
@@ -55,58 +55,62 @@ public class Manager{
     ProgressHandler progressHandler;
 
 
-
-    public Manager(String absDir,String expectName, String url) {
+    public Manager(String absDir, String expectName, String url) {
         this.mAbsDir = absDir;
-        this.mExpectName =expectName;
+        this.mExpectName = expectName;
         this.remoteUrl = url;
         progressHandler = new ProgressHandler(this);
     }
 
-    public void reStart(Observer<ProgressInfo> observer){
-        if(!isDonwLoading()){
-            subscribe(this,observer);
+    public void reStart(Observer<ProgressInfo> observer) {
+        if (!isDonwLoading()) {
+            subscribe(this, observer);
             progressHandler.mSignal = ProgressHandler.AsyncAction.STARTED;
             progressHandler.mAtomicLong.set(1);
         }
     }
-    private void postFinishOrStop(){
+
+    private void postFinishOrStop() {
 
         ProgressInfo info = progressHandler.getCurProgressInfo();
         mProgresDisposable.dispose();
         boolean isFinish = progressHandler.isDownloadFinish();
-        info.mState = isFinish? ProgressInfo.State.FINISHED: ProgressInfo.State.STOPE;
-        if(!isFinish){
+        info.mState = isFinish ? ProgressInfo.State.FINISHED : ProgressInfo.State.STOPE;
+        if (!isFinish) {
             progressHandler.mAtomicLong.set(0);
         }
         mStateSubscriber.onNext(info);
         mStateSubscriber.onComplete();
     }
 
-    public synchronized void stop(){
+    public synchronized void stop() {
         progressHandler.mSignal = ProgressHandler.AsyncAction.STOPE;
         onCancel();
 
     }
-    public void onCancel(){
-        if(mProgresDisposable !=null && !mProgresDisposable.isDisposed()){
+
+    public void onCancel() {
+        if (mProgresDisposable != null && !mProgresDisposable.isDisposed()) {
             mProgresDisposable.dispose();
         }
     }
-    public synchronized boolean isConnecting(){
-        return progressHandler.mAtomicLong.get()==1;
+
+    public synchronized boolean isConnecting() {
+        return progressHandler.mAtomicLong.get() == 1;
 
     }
-    public synchronized boolean isDonwLoading(){
+
+    public synchronized boolean isDonwLoading() {
         long state = progressHandler.mAtomicLong.get();
-        if(state>0 && state!=4){
+        if (state > 0 && state != 4) {
             return true;
         }
         return false;
 
     }
-    public synchronized boolean isStarted(){
-        return progressHandler.mAtomicLong.get()>0;
+
+    public synchronized boolean isStarted() {
+        return progressHandler.mAtomicLong.get() > 0;
 
     }
 
@@ -123,32 +127,33 @@ public class Manager{
         raf.setLength(contentLength);
         raf.close();
     }
+
     public boolean checkFileFinish(File file, long contentLength) throws IOException {
         if (!file.exists()) {
-           return false;
+            return false;
         } else {
-            boolean isFinish =false;
+            boolean isFinish = false;
             RandomAccessFile raf = new RandomAccessFile(file, "rw");
-            if(raf.length() ==contentLength){
-                isFinish =true;
+            if (raf.length() == contentLength) {
+                isFinish = true;
             }
             raf.close();
             return isFinish;
         }
     }
 
-    public boolean isValideFile(File file, long expextLength)  {
-        if (file.exists() && file.isFile() ) {
-            RandomAccessFile randomAccessFile =null;
+    public boolean isValideFile(File file, long expextLength) {
+        if (file.exists() && file.isFile()) {
+            RandomAccessFile randomAccessFile = null;
             try {
-                randomAccessFile = new RandomAccessFile(file,"rw");
+                randomAccessFile = new RandomAccessFile(file, "rw");
                 long fileLength = randomAccessFile.length();
-                return expextLength ==fileLength;
+                return expextLength == fileLength;
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
-            }finally {
+            } finally {
                 okhttp3.internal.Util.closeQuietly(randomAccessFile);
             }
         }
@@ -177,10 +182,12 @@ public class Manager{
             onError(e);
         }
     }
+
     Disposable mProgresDisposable;
+
     private File call() throws IOException {
         reset();
-        mStateSubscriber.onNext(new ProgressInfo(0,0, ProgressInfo.State.CONNECT));
+        mStateSubscriber.onNext(new ProgressInfo(0, 0, ProgressInfo.State.CONNECT));
         progressHandler.mAtomicLong.set(2);
         Response response = getOkHttpClient().newCall(getRequest()).execute();
         ResponseBody responseBody = response.body();
@@ -189,20 +196,20 @@ public class Manager{
         final long contentLength = responseBody.contentLength();
         mContentLength = contentLength;
         progressHandler.setContentLength(mContentLength);
-        if(TextUtils.isEmpty(mExpectName)){
-            mFileName = getFileName(remoteUrl,response);
-        }else{
+        if (TextUtils.isEmpty(mExpectName)) {
+            mFileName = getFileName(remoteUrl, response);
+        } else {
             mFileName = mExpectName;
         }
 
         if (contentLength <= MIN_BLOCK_PERTASK * 1.5 || !isSurpportMultiThread(response)) {
-            ResponseMapper mapper = new ResponseMapper(mAbsDir,mFileName);
+            ResponseMapper mapper = new ResponseMapper(mAbsDir, mFileName);
             ResponseBody body = response.newBuilder().body(new ProgressResponseBody(responseBody, listener)).build().body();
             return mapper.apply(body);
         }
 
         List<DownloadInfo> downloadInfos = getDownloadInfos(remoteUrl);
-        if(downloadInfos ==null){
+        if (downloadInfos == null) {
             downloadInfos = new ArrayList<>();
         }
         if (CollectionUtils.isEmpty(downloadInfos)) {
@@ -216,7 +223,7 @@ public class Manager{
         mProgresDisposable = progressHandler.getProgress().subscribe(new Consumer<ProgressInfo>() {
             @Override
             public void accept(ProgressInfo progressInfo) {
-                if(!mStateSubscriber.isDisposed()){
+                if (!mStateSubscriber.isDisposed()) {
                     Manager.this.mStateSubscriber.onNext(progressInfo);
                 }
             }
@@ -224,24 +231,26 @@ public class Manager{
         progressHandler.mAtomicLong.set(3);
         //TODO
         try {
-            if(mCountDownLatch != null)
-            mCountDownLatch.await();
+            if (mCountDownLatch != null)
+                mCountDownLatch.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        if(checkFileFinish(new File(mAbsDir,mFileName+S_FILECACHE_NAME),mContentLength)){
+        if (checkFileFinish(new File(mAbsDir, mFileName + S_FILECACHE_NAME), mContentLength)) {
             Dao.getInstance().delete(remoteUrl);
             rename();
             progressHandler.mSignal = ProgressHandler.AsyncAction.FINISHED;
         }
         progressHandler.mAtomicLong.set(4);
         postFinishOrStop();
-        Logger.e(mAbsDir + "  content " +contentLength );
-        return new File(mAbsDir,mFileName);
+        Logger.e(mAbsDir + "  content " + contentLength);
+        return new File(mAbsDir, mFileName);
     }
-    private void prepareWithHistory(List<DownloadInfo> downloadInfos){
+
+    private void prepareWithHistory(List<DownloadInfo> downloadInfos) {
         long expectLength = 0;
+        DownloadInfo theLastOne = null;
         for (DownloadInfo info : downloadInfos) {
             expectLength += info.getCompeleteSize();
             if (info.getCompeleteSize() == (info.getEndPos() - info.getStartPos() + 1)) {
@@ -249,24 +258,31 @@ public class Manager{
             } else {
                 info.isFinished = false;
             }
+            if (theLastOne == null) {
+                theLastOne = info;
+            } else {
+                if (info.getEndPos() > theLastOne.getEndPos()) {
+                    theLastOne = info;
+                }
+            }
         }
-        File targetFile = new File(mAbsDir,mFileName);
-        File cacheFile = new File(mAbsDir,mFileName+S_FILECACHE_NAME);
-        if (isValideFile(cacheFile, expectLength)) {
-
-        } else {
+        theLastOne.isLastOne = true;
+        File targetFile = new File(mAbsDir, mFileName);
+        File cacheFile = new File(mAbsDir, mFileName + S_FILECACHE_NAME);
+        if (!isValideFile(cacheFile, expectLength)) {
             Dao.getInstance().delete(remoteUrl);
-
             deleteFile(targetFile);
             deleteFile(cacheFile);
             prepareWithoutHistory(downloadInfos);
         }
     }
-    private void deleteFile(File file){
-        if(file.exists()){
+
+    private void deleteFile(File file) {
+        if (file.exists()) {
             file.delete();
         }
     }
+
     private void prepareWithoutHistory(List<DownloadInfo> downloadInfos) {
         if (CollectionUtils.isEmpty(downloadInfos)) {
             long count = mContentLength / MIN_BLOCK_PERTASK;
@@ -288,12 +304,16 @@ public class Manager{
                 } else {
                     endPos = (mContentLength - 1);
                 }
+
                 DownloadInfo downloadInfo = new DownloadInfo(i, i * perBlock, endPos, 0, remoteUrl);
+                if (i == count - 1) {
+                    downloadInfo.isLastOne = true;
+                }
                 downloadInfos.add(downloadInfo);
             }
             Dao.getInstance().saveInfos(downloadInfos);
             try {
-                createFile(new File(mAbsDir,mFileName+S_FILECACHE_NAME), mContentLength);
+                createFile(new File(mAbsDir, mFileName + S_FILECACHE_NAME), mContentLength);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -307,24 +327,27 @@ public class Manager{
             progressHandler.setProgress(info);
             if (!info.isFinished) {
                 taskCount++;
-                DownloadTask task = new DownloadTask(new File(mAbsDir,mFileName+S_FILECACHE_NAME),progressHandler, info);
+                DownloadTask task = new DownloadTask(new File(mAbsDir, mFileName + S_FILECACHE_NAME), progressHandler, info);
                 tasks.add(task);
 
-            }else{
+            } else {
 
             }
         }
         mCountDownLatch = new CountDownLatch(taskCount);
-        for(DownloadTask task :tasks){
-            excuteTask(task,mCountDownLatch);
+        for (DownloadTask task : tasks) {
+            excuteTask(task, mCountDownLatch);
         }
     }
+
     public final static String S_FILECACHE_NAME = ".cache";
-    private void rename(){
+
+    private void rename() {
         //更新文件
-        File file = new File(mAbsDir,mFileName +S_FILECACHE_NAME);
-        file.renameTo(new File(mAbsDir,mFileName));
+        File file = new File(mAbsDir, mFileName + S_FILECACHE_NAME);
+        file.renameTo(new File(mAbsDir, mFileName));
     }
+
     public boolean isSurpportMultiThread(Response originalResponse) {
         String bytes = originalResponse.header("Accept-Ranges");
         String contentRange = originalResponse.header("Content-Range");
@@ -375,7 +398,7 @@ public class Manager{
             @Override
             public void subscribe(ObservableEmitter<Boolean> e) {
                 task.execute(getOkHttpClient(), getRequest());
-                if(!e.isDisposed()){
+                if (!e.isDisposed()) {
                     e.onNext(task.isFinish());
                     e.onComplete();
                 }
@@ -386,7 +409,7 @@ public class Manager{
                     @Override
                     public void onError(Throwable e) {
                         countDownLatch.countDown();
-                        Logger.e(e.toString() +"发生错误");
+                        Logger.e(e.toString() + "发生错误");
                     }
 
                     @Override
@@ -407,7 +430,8 @@ public class Manager{
     }
 
     ObservableEmitter<ProgressInfo> mStateSubscriber;
-    public static void subscribe(Manager manager,Observer<ProgressInfo> subscriber){
+
+    public static void subscribe(Manager manager, Observer<ProgressInfo> subscriber) {
         Observable.create(new ObservableOnSubscribe<ProgressInfo>() {
             @Override
             public void subscribe(@NonNull ObservableEmitter<ProgressInfo> e) throws Exception {
@@ -433,13 +457,14 @@ public class Manager{
         builder.url(remoteUrl);
         return builder.build();
     }
+
     static OkHttpClient sOkHttpClient;
 
-    public static OkHttpClient getOkHttpClient(){
-        if(sOkHttpClient ==null){
-            OkHttpClient.Builder builder =new OkHttpClient.Builder();
-            sOkHttpClient =builder.connectTimeout(30*1000, TimeUnit.MILLISECONDS)
-                    .readTimeout(15*1000, TimeUnit.MILLISECONDS).writeTimeout(15*1000,TimeUnit.MILLISECONDS).build();
+    public static OkHttpClient getOkHttpClient() {
+        if (sOkHttpClient == null) {
+            OkHttpClient.Builder builder = new OkHttpClient.Builder();
+            sOkHttpClient = builder.connectTimeout(30 * 1000, TimeUnit.MILLISECONDS)
+                    .readTimeout(15 * 1000, TimeUnit.MILLISECONDS).writeTimeout(15 * 1000, TimeUnit.MILLISECONDS).build();
         }
         return sOkHttpClient;
 

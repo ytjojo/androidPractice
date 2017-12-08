@@ -43,7 +43,12 @@ public class DownloadTask {
 
     public void execute(OkHttpClient client, Request request) {
 
-        Request rangeRequest = request.newBuilder().header("Range", "bytes=" + (startPos + compeleteSize) + "-" + endPos).build();
+        Request rangeRequest = null;
+        if(mDownloadInfo.isLastOne){
+            rangeRequest = request.newBuilder().header("Range", "bytes=" + (startPos + compeleteSize) + "-" ).build();
+        }else {
+            request.newBuilder().header("Range", "bytes=" + (startPos + compeleteSize) + "-" + endPos).build();
+        }
         RandomAccessFile raf = null;
         BufferedInputStream bis = null;
         ResponseBody responseBody = null;

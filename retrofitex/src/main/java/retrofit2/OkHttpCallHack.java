@@ -15,8 +15,8 @@
  */
 package retrofit2;
 
+//final class OkHttpCallHack<T> implements Call<T> {}
 import java.io.IOException;
-
 
 import okhttp3.MediaType;
 import okhttp3.Request;
@@ -30,15 +30,15 @@ import static retrofit2.Utils.checkNotNull;
 
 final class OkHttpCallHack<T> implements Call<T> {
   private final ServiceMethodHack<T, ?> serviceMethod;
-  private final Object[] args;
+  private final  Object[] args;
 
   private volatile boolean canceled;
 
-  private okhttp3.Call rawCall;
+  private  okhttp3.Call rawCall;
   private  Throwable creationFailure; // Either a RuntimeException or IOException.
   private boolean executed;
 
-  OkHttpCallHack(ServiceMethodHack<T, ?> serviceMethod, Object[] args) {
+  OkHttpCallHack(ServiceMethodHack<T, ?> serviceMethod,  Object[] args) {
     this.serviceMethod = serviceMethod;
     this.args = args;
   }
@@ -103,7 +103,7 @@ final class OkHttpCallHack<T> implements Call<T> {
 
     call.enqueue(new okhttp3.Callback() {
       @Override public void onResponse(okhttp3.Call call, okhttp3.Response rawResponse)
-          throws IOException {
+              throws IOException {
         Response<T> response;
         try {
           response = parseResponse(rawResponse);
@@ -191,8 +191,8 @@ final class OkHttpCallHack<T> implements Call<T> {
 
     // Remove the body's source (the only stateful object) so we can pass the response along.
     rawResponse = rawResponse.newBuilder()
-        .body(new NoContentResponseBody(rawBody.contentType(), rawBody.contentLength()))
-        .build();
+            .body(new NoContentResponseBody(rawBody.contentType(), rawBody.contentLength()))
+            .build();
 
     int code = rawResponse.code();
     if (code < 200 || code >= 300) {

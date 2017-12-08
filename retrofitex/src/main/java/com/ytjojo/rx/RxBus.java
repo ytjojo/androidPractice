@@ -5,10 +5,6 @@ import android.util.Log;
 
 import com.trello.rxlifecycle2.LifecycleTransformer;
 
-import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
-
 import java.lang.reflect.Type;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -17,9 +13,6 @@ import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
 import io.reactivex.FlowableEmitter;
 import io.reactivex.FlowableOnSubscribe;
-import io.reactivex.FlowableSubscriber;
-import io.reactivex.Observable;
-import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.exceptions.Exceptions;
@@ -28,7 +21,6 @@ import io.reactivex.functions.Consumer;
 import io.reactivex.plugins.RxJavaPlugins;
 import io.reactivex.processors.FlowableProcessor;
 import io.reactivex.processors.PublishProcessor;
-import io.reactivex.schedulers.Schedulers;
 
 /**
  * Author: 杨腾蛟
@@ -197,66 +189,5 @@ public class RxBus {
     public <T> Flowable<T> toMainThreadObserverable(Class<T> clazz, LifecycleTransformer<T> lifecycleTransformer) {
         return toObserverable(clazz).observeOn(AndroidSchedulers.mainThread()).compose(lifecycleTransformer);
     }
-    private void test() {
-        Flowable.just(true).subscribe(new FlowableSubscriber<Boolean>() {
-            @Override
-            public void onSubscribe(@io.reactivex.annotations.NonNull Subscription s) {
-                s.request(Integer.MAX_VALUE);
-                s.cancel();
-            }
 
-            @Override
-            public void onNext(Boolean aBoolean) {
-
-            }
-
-            @Override
-            public void onError(Throwable t) {
-
-            }
-
-            @Override
-            public void onComplete() {
-
-            }
-        });
-        Observable.just(1).subscribe(new Observer<Integer>() {
-            @Override
-            public void onSubscribe(@io.reactivex.annotations.NonNull Disposable d) {
-            }
-
-            @Override
-            public void onNext(@io.reactivex.annotations.NonNull Integer integer) {
-
-            }
-
-            @Override
-            public void onError(@io.reactivex.annotations.NonNull Throwable e) {
-
-            }
-
-            @Override
-            public void onComplete() {
-
-            }
-        });
-        Flowable.create(new FlowableOnSubscribe<Integer>() {
-            @Override
-            public void subscribe(@io.reactivex.annotations.NonNull FlowableEmitter<Integer> e) throws Exception {
-                e.onNext(1);
-            }
-        }, BackpressureStrategy.BUFFER).subscribe(new Consumer<Integer>() {
-            @Override
-            public void accept(Integer integer) throws Exception {
-
-            }
-        });
-        Flowable.unsafeCreate(new Publisher<Integer>() {
-            @Override
-            public void subscribe(Subscriber<? super Integer> s) {
-                s.onNext(1);
-            }
-        }).subscribeOn(Schedulers.io());
-
-    }
 }

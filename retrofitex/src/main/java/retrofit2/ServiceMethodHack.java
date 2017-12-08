@@ -774,7 +774,11 @@ final class ServiceMethodHack<R, T> {
 
     private Converter<ResponseBody, T> createResponseConverter() {
       Annotation[] annotations = method.getAnnotations();
+
       try {
+        if(responseType.equals(Void.class)){
+          return (Converter<ResponseBody, T>) VoidResponseBodyConverter.INSTANCE;
+        }
         return retrofit.responseBodyConverter(responseType, annotations);
       } catch (RuntimeException e) { // Wide exception range because factories are user code.
         throw methodError(e, "Unable to create converter for %s", responseType);

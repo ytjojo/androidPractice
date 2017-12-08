@@ -42,7 +42,7 @@ public class ArticleTest {
 
             @Override
             public void onError(Throwable e) {
-
+                e.printStackTrace();
             }
 
             @Override
@@ -57,7 +57,7 @@ public class ArticleTest {
 
             @Override
             public void onNext(Void ss) {
-                System.out.println("finish ------------------");
+                System.out.println("finish ------------------ss");
             }
         });
 

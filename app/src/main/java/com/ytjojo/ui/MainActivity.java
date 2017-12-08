@@ -28,6 +28,8 @@ import com.ytjojo.domin.response.OrganAddrArea;
 import com.ytjojo.domin.vo.LoginResponse;
 import com.ytjojo.http.GitApiInterface;
 import com.ytjojo.http.RetrofitClient;
+import com.ytjojo.http.download.multithread.Manager;
+import com.ytjojo.http.download.multithread.ProgressInfo;
 import com.ytjojo.practice.R;
 import com.ytjojo.rx.RxHttpHelper;
 import com.ytjojo.utils.DensityUtil;
@@ -51,23 +53,29 @@ public class MainActivity extends AppCompatActivity {
                     WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS,
                     WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
         }
-//        Manager manager = new Manager(getExternalCacheDir().getAbsolutePath(),"",Constant.BIG_FILE_URLS[3]);
-//        Manager.subscribe(manager, new Subscriber<ProgressInfo>() {
-//            @Override
-//            public void onCompleted() {
-//
-//            }
-//
-//            @Override
-//            public void onError(Throwable e) {
-//
-//            }
-//
-//            @Override
-//            public void onNext(ProgressInfo progressInfo) {
-////                Logger.e(progressInfo.mState+" ---------------下载-----------------" +progressInfo.bytesRead);
-//            }
-//        });
+        Manager manager = new Manager(getExternalCacheDir().getAbsolutePath(),"",Constant.BIG_FILE_URLS[3]);
+        Manager.subscribe(manager, new Observer<ProgressInfo>() {
+
+            @Override
+            public void onError(Throwable e) {
+
+            }
+
+            @Override
+            public void onComplete() {
+
+            }
+
+            @Override
+            public void onSubscribe(@NonNull Disposable d) {
+
+            }
+
+            @Override
+            public void onNext(ProgressInfo progressInfo) {
+//                Logger.e(progressInfo.mState+" ---------------下载-----------------" +progressInfo.bytesRead);
+            }
+        });
 
 
         mDecorView = (ViewGroup) getWindow().getDecorView();

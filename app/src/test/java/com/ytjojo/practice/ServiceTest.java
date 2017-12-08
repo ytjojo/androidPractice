@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import io.reactivex.Observer;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Function;
 import okhttp3.CacheControl;
 import okhttp3.OkHttpClient;
 import retrofit2.ProxyHandler;
@@ -26,7 +27,7 @@ import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
  * Created by Administrator on 2017/7/24 0024.
  */
 
-public class SeeviceTest {
+public class ServiceTest {
     Retrofit retrofit;
 
     @Before
@@ -177,5 +178,64 @@ public class SeeviceTest {
                 System.out.print(jsonObject.toString());
             }
         });
+    }
+
+    @Test
+    public void voidTest() {
+
+        LoginRequest request = new LoginRequest();
+
+        retrofit.create(GitApiInterface.class).login(request).subscribe(new Observer<LoginResponse>() {
+
+            @Override
+            public void onSubscribe(@NonNull Disposable d) {
+
+            }
+
+            @Override
+            public void onNext(@NonNull LoginResponse loginResponse) {
+
+            }
+
+            @Override
+            public void onError(@NonNull Throwable e) {
+
+            }
+
+            @Override
+            public void onComplete() {
+
+            }
+        });
+        retrofit.create( GitApiInterface.class)
+        .getHealthCardTypeDict1()
+                .map(new Function<Void, Void>() {
+                    @Override
+                    public Void apply(@NonNull Void aVoid) throws Exception {
+                        return aVoid;
+                    }
+                })
+                .subscribe(new Observer<Void>() {
+
+                    @Override
+                    public void onError(Throwable e) {
+                        System.out.println("----------------getHealthCardTypeDict1" + e.getMessage());
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+
+                    @Override
+                    public void onSubscribe(@NonNull Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Void ss) {
+                        System.out.println("----------------getHealthCardTypeDict1");
+                    }
+                });
     }
 }

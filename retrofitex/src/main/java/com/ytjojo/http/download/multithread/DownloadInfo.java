@@ -11,6 +11,7 @@ public class DownloadInfo {
     private String url;//下载器网络标识
     private String filePath;
     public boolean isFinished;
+    public boolean isLastOne;
 
     public String getFilePath() {
         return filePath;
