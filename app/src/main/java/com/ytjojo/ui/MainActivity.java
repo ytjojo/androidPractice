@@ -58,7 +58,8 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onError(Throwable e) {
-
+                e.printStackTrace();
+                Logger.e(e.getMessage());
             }
 
             @Override
@@ -73,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onNext(ProgressInfo progressInfo) {
-//                Logger.e(progressInfo.mState+" ---------------下载-----------------" +progressInfo.bytesRead);
+                Logger.e(progressInfo.mState+" ---------------下载-----------------" +progressInfo.bytesRead);
             }
         });
 
