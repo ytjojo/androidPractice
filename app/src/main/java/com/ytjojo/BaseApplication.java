@@ -14,6 +14,7 @@ import com.promegu.xlog.base.XLogMethod;
 import com.ytjojo.http.CookiesManager;
 import com.ytjojo.http.RetrofitClient;
 import com.ytjojo.http.cookie.PersistentCookieJar;
+import com.ytjojo.http.download.multithread.Dao;
 import com.ytjojo.http.interceptor.ReceivedCookiesInterceptor;
 import com.ytjojo.practice.R;
 
@@ -26,6 +27,7 @@ public class BaseApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        Dao.init(this);
         RetrofitClient.init(RetrofitClient.newBuilder().baseUrl("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/")
                 .showLog(true).cookie(new CookiesManager(this))
                 .cache(getCacheDir())
