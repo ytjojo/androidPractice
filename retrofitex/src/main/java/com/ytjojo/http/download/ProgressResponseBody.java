@@ -41,12 +41,15 @@ public class ProgressResponseBody extends ResponseBody {
     private Source source(Source source) {
         return new ForwardingSource(source) {
             long totalBytesRead = 0L;
-
+            long contentLength = 0L;
             @Override
             public long read(Buffer sink, long byteCount) throws IOException {
                 long bytesRead = super.read(sink, byteCount);
+                if(contentLength == 0){
+                    contentLength =  responseBody.contentLength();
+                }
                 totalBytesRead += bytesRead != -1 ? bytesRead : 0;
-                listener.onProgress(totalBytesRead, responseBody.contentLength(), bytesRead == -1);
+                listener.onProgress(totalBytesRead,contentLength, bytesRead == -1);
                 return bytesRead;
             }
         };

@@ -48,4 +48,14 @@ public class ProgressInfo {
         result = 31 * result + (int) (speed ^ (speed >>> 32));
         return result;
     }
+
+    @Override
+    public String toString() {
+        StringBuilder sb =new StringBuilder();
+        sb.append("contentLength = " +contentLength);
+        sb.append("bytesRead = " + bytesRead);
+        sb.append("mState = " + mState);
+        sb.append("speed = " + speed);
+        return sb.toString();
+    }
 }

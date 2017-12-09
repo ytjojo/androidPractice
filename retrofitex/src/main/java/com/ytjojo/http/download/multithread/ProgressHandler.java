@@ -1,5 +1,9 @@
 package com.ytjojo.http.download.multithread;
 
+import android.os.SystemClock;
+
+import com.orhanobut.logger.Logger;
+
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -7,6 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import io.reactivex.Observable;
 import io.reactivex.annotations.NonNull;
+import io.reactivex.functions.BiPredicate;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
 
@@ -57,9 +62,10 @@ public class ProgressHandler {
         mTaskProgress.put(info.getThreadId(), info.getCompeleteSize());
     }
 
-    public static final int DELAY = 30;
+    public static final int DELAY = 16;
 
     public Observable<ProgressInfo> getProgress() {
+        mLastMillis = SystemClock.uptimeMillis();
         return Observable.interval(DELAY, TimeUnit.MILLISECONDS).map(new Function<Long, ProgressInfo>() {
             @Override
             public ProgressInfo apply(Long value) {
@@ -97,21 +103,37 @@ public class ProgressHandler {
                         break;
                 }
 
-                mProgressInfo.speed = (mProgressInfo.bytesRead - lastCompletSize) * 1000 / DELAY;
-                lastCompletSize = mProgressInfo.bytesRead;
+                mProgressInfo.speed = 0;
+                if(mProgressInfo.bytesRead != lastCompletSize){
+
+                    long curMillis = SystemClock.uptimeMillis();
+                    mProgressInfo.speed = (mProgressInfo.bytesRead - lastCompletSize) * 1000 / (curMillis - mLastMillis);
+                    lastCompletSize = mProgressInfo.bytesRead;
+                    mLastMillis = curMillis;
+                }
+//                Logger.e("map"+mProgressInfo.toString());
                 return mProgressInfo;
             }
-        }).distinctUntilChanged().takeUntil(new Predicate<ProgressInfo>() {
+        }).distinctUntilChanged(new BiPredicate<ProgressInfo, ProgressInfo>() {
+            @Override
+            public boolean test(@NonNull ProgressInfo progressInfo, @NonNull ProgressInfo progressInfo2) throws Exception {
+                if(progressInfo.speed ==0){
+                    return true;
+                }
+                return false;
+            }
+        }).takeUntil(new Predicate<ProgressInfo>() {
             @Override
             public boolean test(@NonNull ProgressInfo progressInfo) throws Exception {
                 if (progressInfo.mState != ProgressInfo.State.CONNECT && progressInfo.mState != ProgressInfo.State.DOWNLOADING) {
-                    return false;
+                    return true;
                 }
-                return true;
+                return false;
             }
         });
 
     }
+    long mLastMillis;
 
     public ProgressInfo getCurProgressInfo() {
         int compeleteSize = 0;

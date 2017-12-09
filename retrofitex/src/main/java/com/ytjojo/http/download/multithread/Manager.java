@@ -79,17 +79,18 @@ public class Manager {
         if (!isFinish) {
             progressHandler.mAtomicLong.set(0);
         }
-        mStateSubscriber.onNext(info);
-        mStateSubscriber.onComplete();
+        mProgressEmitter.onNext(info);
+        mProgressEmitter.onComplete();
     }
 
     public synchronized void stop() {
-        progressHandler.mSignal = ProgressHandler.AsyncAction.STOPE;
-        onCancel();
-
+        if(progressHandler.mSignal==  ProgressHandler.AsyncAction.STARTED){
+            progressHandler.mSignal = ProgressHandler.AsyncAction.STOPE;
+            onCancel();
+        }
     }
 
-    public void onCancel() {
+    private void onCancel() {
         if (mProgresDisposable != null && !mProgresDisposable.isDisposed()) {
             mProgresDisposable.dispose();
         }
@@ -174,8 +175,10 @@ public class Manager {
 
         }
     }
-
-    public void onStart() {
+    public void onStart(){
+        progressHandler.mSignal = ProgressHandler.AsyncAction.STARTED;
+    }
+    public void excute() {
         try {
             call();
         } catch (IOException e) {
@@ -187,7 +190,7 @@ public class Manager {
 
     private File call() throws IOException {
         reset();
-        mStateSubscriber.onNext(new ProgressInfo(0, 0, ProgressInfo.State.CONNECT));
+        mProgressEmitter.onNext(new ProgressInfo(0, 0, ProgressInfo.State.CONNECT));
         progressHandler.mAtomicLong.set(2);
         Response response = getOkHttpClient().newCall(getRequest()).execute();
         ResponseBody responseBody = response.body();
@@ -223,9 +226,10 @@ public class Manager {
         mProgresDisposable = progressHandler.getProgress().subscribe(new Consumer<ProgressInfo>() {
             @Override
             public void accept(ProgressInfo progressInfo) {
-                if (!mStateSubscriber.isDisposed()) {
-                    Manager.this.mStateSubscriber.onNext(progressInfo);
+                if (!mProgressEmitter.isDisposed()) {
+                    Manager.this.mProgressEmitter.onNext(progressInfo);
                 }
+//                Logger.e("subscribe" + progressInfo.toString());
             }
         });
         progressHandler.mAtomicLong.set(3);
@@ -408,6 +412,7 @@ public class Manager {
 
                     @Override
                     public void onError(Throwable e) {
+                        e.printStackTrace();
                         countDownLatch.countDown();
                         Logger.e(e.toString() + "发生错误");
                     }
@@ -429,25 +434,27 @@ public class Manager {
                 });
     }
 
-    ObservableEmitter<ProgressInfo> mStateSubscriber;
+    ObservableEmitter<ProgressInfo> mProgressEmitter;
 
     public static void subscribe(Manager manager, Observer<ProgressInfo> subscriber) {
         Observable.create(new ObservableOnSubscribe<ProgressInfo>() {
             @Override
             public void subscribe(@NonNull ObservableEmitter<ProgressInfo> e) throws Exception {
-                manager.mStateSubscriber = e;
-                manager.onStart();
+                manager.mProgressEmitter = e;
+                manager.excute();
                 e.setCancellable(new Cancellable() {
                     @Override
                     public void cancel() throws Exception {
                         manager.onCancel();
-                        manager.mStateSubscriber = null;
+                        manager.mProgressEmitter = null;
                     }
                 });
             }
         }).subscribeOn(Schedulers.io())
                 .retryWhen(new RetryWhenNetworkException())
                 .observeOn(AndroidSchedulers.mainThread()).subscribe(subscriber);
+        manager.onStart();
+
 
 
     }
@@ -464,7 +471,7 @@ public class Manager {
         if (sOkHttpClient == null) {
             OkHttpClient.Builder builder = new OkHttpClient.Builder();
             sOkHttpClient = builder.connectTimeout(30 * 1000, TimeUnit.MILLISECONDS)
-                    .readTimeout(15 * 1000, TimeUnit.MILLISECONDS).writeTimeout(15 * 1000, TimeUnit.MILLISECONDS).build();
+                    .readTimeout(20 * 1000, TimeUnit.MILLISECONDS).writeTimeout(20 * 1000, TimeUnit.MILLISECONDS).build();
         }
         return sOkHttpClient;
 

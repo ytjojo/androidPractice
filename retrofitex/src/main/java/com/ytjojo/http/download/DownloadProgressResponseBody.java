@@ -47,15 +47,17 @@ public class DownloadProgressResponseBody extends ResponseBody {
     private Source source(Source source) {
         return new ForwardingSource(source) {
             long totalBytesRead = 0L;
-
+            long contentLength = 0L;
             @Override
             public long read(Buffer sink, long byteCount) throws IOException {
                 long bytesRead = super.read(sink, byteCount);
                 // read() returns the number of bytes read, or -1 if this source is exhausted.
                 totalBytesRead += bytesRead != -1 ? bytesRead : 0;
-
+                if(contentLength == 0){
+                    contentLength =  responseBody.contentLength();
+                }
                 if (null != progressListener) {
-                    progressListener.onProgress(totalBytesRead, responseBody.contentLength(), bytesRead == -1);
+                    progressListener.onProgress(totalBytesRead, contentLength, bytesRead == -1);
                 }
                 return bytesRead;
             }

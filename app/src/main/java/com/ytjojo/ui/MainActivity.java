@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
                     WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS,
                     WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
         }
-        Manager manager = new Manager(getExternalCacheDir().getAbsolutePath(),"",Constant.BIG_FILE_URLS[3]);
+        Manager manager = new Manager(getExternalCacheDir().getAbsolutePath(),"",Constant.BIG_FILE_URLS[0]);
         Manager.subscribe(manager, new Observer<ProgressInfo>() {
 
             @Override
@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onNext(ProgressInfo progressInfo) {
-                Logger.e(progressInfo.mState+" ---------------下载-----------------" +progressInfo.bytesRead);
+                Logger.e(progressInfo.speed+" ---------------下载-----------------" +progressInfo.bytesRead);
             }
         });
 

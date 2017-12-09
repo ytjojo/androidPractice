@@ -7,8 +7,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Method;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import okhttp3.OkHttpClient;
@@ -47,7 +50,7 @@ public class DownloadTask {
         if(mDownloadInfo.isLastOne){
             rangeRequest = request.newBuilder().header("Range", "bytes=" + (startPos + compeleteSize) + "-" ).build();
         }else {
-            request.newBuilder().header("Range", "bytes=" + (startPos + compeleteSize) + "-" + endPos).build();
+            rangeRequest = request.newBuilder().header("Range", "bytes=" + (startPos + compeleteSize) + "-" + endPos).build();
         }
         RandomAccessFile raf = null;
         BufferedInputStream bis = null;
@@ -67,16 +70,17 @@ public class DownloadTask {
             channelOut = raf.getChannel();
 
             MappedByteBuffer mappedBuffer = channelOut.map(FileChannel.MapMode.READ_WRITE, startPos + compeleteSize, contentLength);
-//            raf.seek(startPos + compeleteSize);
+            raf.seek(startPos + compeleteSize);
             int bytesRead = -1;
             byte[] buff = new byte[4096];
             while ((bytesRead = bis.read(buff, 0, buff.length)) != -1) {
                 mappedBuffer.put(buff, 0, bytesRead);//效率高
+                mappedBuffer.force();
 //                raf.write(buff, 0, bytesRead);//
                 this.compeleteSize = this.compeleteSize + bytesRead;
                 this.mDownloadInfo.setCompeleteSize(compeleteSize);
                 this.mProgressHandler.setProgress(mDownloadInfo);
-//                Logger.e(mDownloadInfo.getThreadId()+ "  "+compeleteSize + " contentLength=" + contentLength);
+                Logger.e(mDownloadInfo.getThreadId()+ "  "+compeleteSize + " contentLength=" + contentLength);
                 Dao.getInstance().updataInfos(mDownloadInfo.getThreadId(), compeleteSize, mDownloadInfo.getUrl());
                 if (mProgressHandler.mSignal == ProgressHandler.AsyncAction.STOPE) {
                     isStoped.set(true);
@@ -84,7 +88,7 @@ public class DownloadTask {
                 }
             }
             boolean isFinish = needDownloadLength == contentLength;
-            Logger.e(mDownloadInfo.getThreadId() + " id  " + contentLength + "完成 start" + mDownloadInfo.getStartPos() + "endpos =" + mDownloadInfo.getEndPos() + "comlete=" + mDownloadInfo.getCompeleteSize());
+//            Logger.e(mDownloadInfo.getThreadId() + " id  " + contentLength + "完成 start" + mDownloadInfo.getStartPos() + "endpos =" + mDownloadInfo.getEndPos() + "comlete=" + mDownloadInfo.getCompeleteSize());
 
 //            if(!forceStop&& mDownloadInfo.getStartPos() + compeleteSize != mDownloadInfo.getEndPos()+1){
 //                throw new DownLoadException("保存文件出错");
@@ -102,7 +106,16 @@ public class DownloadTask {
                 responseBody.close();
         }
     }
-
+//    public static void clean(final MappedByteBuffer buffer) throws Exception {
+//        if (buffer == null) {
+//            return;
+//        }
+//        buffer.force();
+//        Method m = FileChannelImpl.class.getDeclaredMethod("unmap",
+//                MappedByteBuffer.class);
+//        m.setAccessible(true);
+//        m.invoke(FileChannelImpl.class, buffer);
+//    }
     public boolean isFinish() {
         return compeleteSize == contentLength;
     }

@@ -2,7 +2,9 @@ package com.ytjojo.ui;
 
 public  class Constant{
        public static String[] BIG_FILE_URLS = {
-                // 5m
+               //支付宝
+               "http://gdown.baidu.com/data/wisegame/3ab767634fa74db8/zhifubao_121.apk",
+               // 5m
                "https://t.alipayobjects.com/L1/71/100/and/alipay_wap_main.apk",
                "http://mirror.internode.on.net/pub/test/5meg.test5",
                 // 6m
