@@ -27,6 +27,7 @@ import com.ytjojo.http.util.TextUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Type;
 
 import okhttp3.ResponseBody;
@@ -36,7 +37,6 @@ import retrofit2.Converter;
 
 final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 	public static Void DEFAULT_VOID_INSTIANCE;
-	public final int RESPONSE_DEFAULT_CODE = -200;
 	private final Gson mGson;
 	private final Type type;
 	private TypeAdapter<T> adapter;
@@ -54,32 +54,48 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 		if (TextUtils.isEmpty(value)) {
 			throw new APIException(-3, "response is null");
 		}
-
+		int code = Integer.MAX_VALUE;
+		JsonElement root = null;
+		JsonObject response;
 		try{
-			JsonElement root = mGson.fromJson(value, JsonElement.class);
-			JsonObject response = root.getAsJsonObject();
-			int code = response.get("code").getAsInt();
+			root = mGson.fromJson(value, JsonElement.class);
+			if(root.isJsonObject()){
+				response = root.getAsJsonObject();
+				JsonElement codeElement  = response.get("code");
+				if(codeElement != null){
+					code = codeElement.getAsInt();
+				}else {
+					JsonElement bodyJson = response.get("body");
+					if(bodyJson == null){
+						return parse(root,value);
+					}
+				}
+			}else {
+				return parse(root,value);
+			}
+
+		}catch (Exception e){
+			throw new JsonException("json解析失败",e);
+		}
+
+		if (code != ServerResponse.RESULT_OK) {
 			JsonElement msgJE = response.get("msg");
 			String msg = msgJE == null ? null : msgJE.getAsString();
-			if (code != ServerResponse.RESULT_OK) {
-				throw new APIException(code, msg, value);
-			}
+			throw new APIException(code, msg, value);
+		}
+		try{
 			if (type instanceof Class) {
 				if (type == String.class) {
 					JsonElement bodyJson = response.get("body");
-					return bodyJson!=null?(T)bodyJson.getAsString():null;
+					return (T)(bodyJson!=null?bodyJson.getAsString():"");
 				}
 				if (type == Void.class) {
-					if(DEFAULT_VOID_INSTIANCE ==null){
-						Constructor<?>[] cons = Void.class.getDeclaredConstructors();
-						cons[0].setAccessible(true);
-						DEFAULT_VOID_INSTIANCE = (Void) cons[0].newInstance(new Object[]{});
-					}
+					assertVoidInstance();
 					return (T) DEFAULT_VOID_INSTIANCE;
 				}
-				if (type == JsonObject.class) {
+				if (type == JsonElement.class) {
 					//如果返回结果是JSONObject则无需经过Gson
-					return (T)(response);
+					return (T)(root);
 				}
 				if(!(ServerResponse.class.isAssignableFrom((Class<?>) type))){
 					Type wrapperType = $Gson$Types.newParameterizedTypeWithOwner(null,ServerResponse.class,type);
@@ -92,5 +108,31 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 			throw new JsonException("json解析失败",e);
 		}
 
+	}
+	private void assertVoidInstance(){
+		if(DEFAULT_VOID_INSTIANCE ==null){
+			Constructor<?>[] cons = Void.class.getDeclaredConstructors();
+			cons[0].setAccessible(true);
+			try {
+				DEFAULT_VOID_INSTIANCE = (Void) cons[0].newInstance(new Object[]{});
+			} catch (InstantiationException e) {
+				e.printStackTrace();
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	private T parse(JsonElement root,String json){
+		if (type == Void.class) {
+			assertVoidInstance();
+			return (T) DEFAULT_VOID_INSTIANCE;
+		}
+		if (type == JsonElement.class) {
+			//如果返回结果是JSONObject则无需经过Gson
+			return (T)(root);
+		}
+		return mGson.fromJson(json, type);
 	}
 }

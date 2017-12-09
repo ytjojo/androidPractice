@@ -2,13 +2,19 @@ package com.ytjojo.http.upload;
 
 import android.net.Uri;
 
+import com.ytjojo.http.util.CollectionUtils;
+
 import java.io.File;
+import java.net.FileNameMap;
+import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import io.reactivex.Observable;
+import okhttp3.Headers;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
@@ -144,6 +150,69 @@ public class RetrofitParameterBuilder {
                 MultipartBody.Part.createFormData("image", file.getName(), requestFile);
         return body;
     }
+    public static RequestBody upload(HashMap<String,String> params,ArrayList<File> files){
+        final MultipartBody.Builder builder= new MultipartBody.Builder()
+                .setType(MultipartBody.FORM);
+        for(Map.Entry<String,String> entry:params.entrySet()){
+            builder.addFormDataPart(entry.getKey(),entry.getValue());
+        }
+        for(File file:files){
+            RequestBody requestBody = RequestBody.create(MediaType.parse("*/*"), file);
+            builder .addFormDataPart("file[]", file.getName(),requestBody);
+        }
+        return builder.build();
+
+    }
+
+    /**
+     * 生成post提交时的分块request
+     * @param files
+     * @param fileKeys
+     * @param params
+     * @return
+     */
+    private RequestBody buildMultipartFormRequestBody(File[] files, String[] fileKeys, HashMap<String,String> params){
+        MultipartBody.Builder builder = new MultipartBody.Builder();
+        if(!CollectionUtils.isEmpty(params)){
+            for(Map.Entry<String,String> entry:params.entrySet()){
+                builder.addPart(Headers.of("Content-Disposition", "form-data; name=\"" + entry.getKey() + "\""),
+                        RequestBody.create(null, entry.getValue()));
+            }
+        }
+        if(files == null){
+            files = new File[0];
+        }
+        if(fileKeys == null){
+            fileKeys = new String[0];
+        }
+
+        if(fileKeys.length != files.length){
+            throw new ArrayStoreException("fileKeys.length != files.length");
+        }
+        RequestBody fileBody = null;
+        int length = files.length;
+        for(int i = 0;i<length;i++){
+            File file = files[i];
+            String fileName = file.getName();
+            fileBody = RequestBody.create(MediaType.parse(guessMimeType(fileName)),file);
+            //TODO 根据文件名设置contentType
+            builder.addPart(Headers.of("Content-Disposition",
+                    "form-data; name=\"" + fileKeys[i] + "\"; fileName=\"" + fileName + "\""),
+                    fileBody);
+        }
+        return builder.build();
+    }
+
+    private String guessMimeType(String path){
+        FileNameMap fileNameMap = URLConnection.getFileNameMap();
+        String type = fileNameMap.getContentTypeFor(path);
+        if(type == null){
+            type = "application/octet-stream";
+        }
+        return type;
+    }
+
+
     public static interface UploadService{
 
         @POST()

@@ -16,6 +16,7 @@ import retrofit2.http.POST;
 import retrofit2.http.Part;
 import retrofit2.http.PartMap;
 import retrofit2.http.Path;
+import retrofit2.http.QueryMap;
 
 /**
  * Created by Administrator on 2016/11/20 0020.
@@ -47,12 +48,26 @@ public class UploadHelper {
         UploadService serverApi= RetrofitClient.getDefault().create(UploadService.class);
         return serverApi.uploadFile(url,des, params);
     }
+    public static Map<String, RequestBody> getFileRequestBody(ArrayList<File> files){
+        HashMap<String,RequestBody> map = new HashMap<>();
+        for(File file:files){
+
+            RequestBody requestBody =  RequestBody.create(MediaType.parse("multipart/form-data"), file) ;
+            map.put("file\"; filename=\"" + file.getName(),requestBody);
+        }
+        return map;
+    }
+
     public interface UploadService{
         @Multipart
         @POST("{path}")
         Observable<String> uploadFile(
                 @Path(value = "path", encoded = true) String url,@Part("filedes") String des,
                 @PartMap() Map<String, RequestBody> maps);
+        @POST("upload")
+        @Multipart
+        Observable<String> uploadFileInfo(@QueryMap Map<String, String> options,
+                                                @PartMap Map<String, RequestBody> externalFileParameters) ;
     }
 
 }

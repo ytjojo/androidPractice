@@ -777,7 +777,16 @@ final class ServiceMethodHack<R, T> {
 
       try {
         if(responseType.equals(Void.class)){
-          return (Converter<ResponseBody, T>) VoidResponseBodyConverter.INSTANCE;
+          BuiltInConverters skipPast = null;
+          for (int i = 0, count = retrofit.converterFactories.size(); i < count; i++) {
+            Converter.Factory factory =
+                    retrofit.converterFactories.get(i);
+            if (factory instanceof BuiltInConverters ) {
+              skipPast = (BuiltInConverters) factory;
+            }
+          }
+          return  retrofit.nextResponseBodyConverter(skipPast,responseType, annotations);
+
         }
         return retrofit.responseBodyConverter(responseType, annotations);
       } catch (RuntimeException e) { // Wide exception range because factories are user code.

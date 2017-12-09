@@ -12,11 +12,15 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
 
+import io.reactivex.ObservableTransformer;
 import io.reactivex.Observer;
+import io.reactivex.Scheduler;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.CacheControl;
 import okhttp3.OkHttpClient;
 import retrofit2.ProxyHandler;
@@ -181,9 +185,10 @@ public class ServiceTest {
     }
 
     @Test
-    public void voidTest() {
+    public void voidTest() throws InterruptedException {
 
         LoginRequest request = new LoginRequest();
+        CountDownLatch countDownLatch=new CountDownLatch(1);
 
         retrofit.create(GitApiInterface.class).login(request).subscribe(new Observer<LoginResponse>() {
 
@@ -207,8 +212,9 @@ public class ServiceTest {
 
             }
         });
-        retrofit.create( GitApiInterface.class)
+        ProxyHandler.create( retrofit,GitApiInterface.class)
         .getHealthCardTypeDict1()
+               .subscribeOn(Schedulers.io())
                 .map(new Function<Void, Void>() {
                     @Override
                     public Void apply(@NonNull Void aVoid) throws Exception {
@@ -220,6 +226,8 @@ public class ServiceTest {
                     @Override
                     public void onError(Throwable e) {
                         System.out.println("----------------getHealthCardTypeDict1" + e.getMessage());
+                        e.printStackTrace();
+                        countDownLatch.countDown();
                     }
 
                     @Override
@@ -234,8 +242,10 @@ public class ServiceTest {
 
                     @Override
                     public void onNext(Void ss) {
-                        System.out.println("----------------getHealthCardTypeDict1");
+                        System.out.println("onNext----------------getHealthCardTypeDict1");
+                        countDownLatch.countDown();
                     }
                 });
+        countDownLatch.await();
     }
 }
