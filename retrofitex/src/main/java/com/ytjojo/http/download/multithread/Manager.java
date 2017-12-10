@@ -66,7 +66,7 @@ public class Manager {
         if (!isDonwLoading()) {
             subscribe(this, observer);
             progressHandler.mSignal = ProgressHandler.AsyncAction.STARTED;
-            progressHandler.mAtomicLong.set(1);
+
         }
     }
 
@@ -177,6 +177,7 @@ public class Manager {
     }
     public void onStart(){
         progressHandler.mSignal = ProgressHandler.AsyncAction.STARTED;
+        progressHandler.mAtomicLong.set(1);
     }
     public void excute() {
         try {
@@ -437,6 +438,9 @@ public class Manager {
     ObservableEmitter<ProgressInfo> mProgressEmitter;
 
     public static void subscribe(Manager manager, Observer<ProgressInfo> subscriber) {
+        if(manager.isDonwLoading()){
+            return;
+        }
         Observable.create(new ObservableOnSubscribe<ProgressInfo>() {
             @Override
             public void subscribe(@NonNull ObservableEmitter<ProgressInfo> e) throws Exception {
