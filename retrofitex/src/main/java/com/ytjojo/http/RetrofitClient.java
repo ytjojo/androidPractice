@@ -1,8 +1,10 @@
 package com.ytjojo.http;
 
+import android.content.Context;
 import android.support.v4.util.Pair;
 
 import com.orhanobut.logger.PrettyFormatStrategy;
+import com.ytjojo.http.cookie.PersistentCookieJar;
 import com.ytjojo.http.coverter.GsonConverterFactory;
 import com.ytjojo.http.https.HttpsDelegate;
 import com.ytjojo.http.https.UnSafeHostnameVerifier;
@@ -118,6 +120,10 @@ public class RetrofitClient {
         }
         public Builder cookie(CookieJar cookieJar){
             this.cookieJar =  cookieJar;
+            return this;
+        }
+        public Builder persistentCookieJar(Context c){
+            this.cookieJar =  new PersistentCookieJar(c.getApplicationContext());
             return this;
         }
         public Builder writeTimeout(int writeTimeout){
