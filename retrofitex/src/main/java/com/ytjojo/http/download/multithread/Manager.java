@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -45,6 +46,16 @@ public class Manager {
 
     public final int MAX_THREAD_COUNT = 3;
     public final int MIN_BLOCK_PERTASK = 1024 * 1024;
+    /**
+     * The target resource resides temporarily under a different URI and the user agent MUST NOT
+     * change the request method if it performs an automatic redirection to that URI.
+     */
+    private final static int HTTP_TEMPORARY_REDIRECT = 307;
+    /**
+     * The target resource has been assigned a new permanent URI and any future references to this
+     * resource ought to use one of the enclosed URIs.
+     */
+    private final static int HTTP_PERMANENT_REDIRECT = 308;
     private ProgressListener listener;
     final String mAbsDir;
     final String mExpectName;
@@ -396,6 +407,17 @@ public class Manager {
             }
         }
         return null;
+    }
+    private String getRedirectUrl(Response response) throws Exception {
+        return response.header("Location");
+    }
+    private static boolean isRedirect(int code) {
+        return code == HttpURLConnection.HTTP_MOVED_PERM
+                || code == HttpURLConnection.HTTP_MOVED_TEMP
+                || code == HttpURLConnection.HTTP_SEE_OTHER
+                || code == HttpURLConnection.HTTP_MULT_CHOICE
+                || code == HTTP_TEMPORARY_REDIRECT
+                || code == HTTP_PERMANENT_REDIRECT;
     }
 
     public void excuteTask(DownloadTask task, CountDownLatch countDownLatch) {
