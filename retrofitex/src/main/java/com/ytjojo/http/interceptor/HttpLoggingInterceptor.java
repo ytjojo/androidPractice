@@ -244,8 +244,7 @@ public final class HttpLoggingInterceptor implements Interceptor {
         }
 
         if (contentLength != 0) {
-          StringBuilder sb = new StringBuilder(requestStartMessage);
-          sb.append("\n");
+          StringBuilder sb = new StringBuilder("\n");
           if(requestBodyContent !=null && requestBodyContent.length()>0){
             sb.append("<-- requestBody " + requestBodyContent + "   -->");
             sb.append("\n");
