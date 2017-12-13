@@ -29,7 +29,7 @@ public class ArticleTest {
             }
         });
 
-        loginter.setLevel( HttpLoggingInterceptor.Level.BODY);
+        loginter.setLevel( HttpLoggingInterceptor.Level.CONTENT);
         OkHttpClient o = new OkHttpClient.Builder().addInterceptor(loginter).addInterceptor(new ReceivedCookiesInterceptor()).build();
 
         Retrofit  retrofit = new Retrofit.Builder()

@@ -40,7 +40,7 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 	private final Gson mGson;
 	private final Type type;
 	private TypeAdapter<T> adapter;
-
+	enum Irrelevant { INSTANCE; }
 	GsonResponseBodyConverter(Gson gson, Type type) {
 		this.mGson = gson;
 		this.type = type;
@@ -89,6 +89,9 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 					JsonElement bodyJson = response.get("body");
 					return (T)(bodyJson!=null?bodyJson.getAsString():"");
 				}
+				if (type == Object.class) {
+					return (T) Irrelevant.INSTANCE;
+				}
 				if (type == Void.class) {
 					assertVoidInstance();
 					return (T) DEFAULT_VOID_INSTIANCE;
@@ -125,6 +128,10 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 		}
 	}
 	private T parse(JsonElement root,String json){
+
+		if (type == Object.class) {
+			return (T) Irrelevant.INSTANCE;
+		}
 		if (type == Void.class) {
 			assertVoidInstance();
 			return (T) DEFAULT_VOID_INSTIANCE;

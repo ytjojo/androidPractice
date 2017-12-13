@@ -86,6 +86,13 @@ public final class HttpLoggingInterceptor implements Interceptor {
      * }</pre>
      */
     BODY
+    /**
+     * Hi?
+     *
+     * <-- 200 ok (22ms)
+     * Hello!
+     */
+    ,CONTENT
   }
 
   public interface Logger {
@@ -248,6 +255,20 @@ public final class HttpLoggingInterceptor implements Interceptor {
         }
 
         logger.log("<-- END HTTP (" + buffer.size() + "-byte body)");
+      }
+    }else if(level == Level.CONTENT){
+      BufferedSource source = responseBody.source();
+      source.request(Long.MAX_VALUE); // Buffer the entire body.
+      Buffer buffer = source.buffer();
+      if (contentLength != 0) {
+        StringBuilder sb = new StringBuilder();
+        if(requestBodyContent !=null && requestBodyContent.length()>0){
+          sb.append("<-- requestBody " + requestBodyContent + "   -->");
+          sb.append("   ");
+        }
+        Charset charset = UTF8;
+        sb.append(buffer.clone().readString(charset));
+        logger.log(sb.toString());
       }
     }
 

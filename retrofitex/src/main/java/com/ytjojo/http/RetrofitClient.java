@@ -32,29 +32,34 @@ import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 
 public class RetrofitClient {
-    public static  final String ContentType_JSON = "application/json";
-    public static  final String ContentType_FORM = "application/x-www-form-urlencoded; charset=UTF-8";
-    private Retrofit retrofit ;
+    public static final String ContentType_JSON = "application/json";
+    public static final String ContentType_FORM = "application/x-www-form-urlencoded; charset=UTF-8";
+    private Retrofit retrofit;
     OkHttpClient mOkHttpClient;
-    public RetrofitClient(Retrofit retrofit){
+
+    public RetrofitClient(Retrofit retrofit) {
         this.retrofit = retrofit;
     }
-    public RetrofitClient(Retrofit retrofit,HeaderInterceptor headerInterceptor){
+
+    public RetrofitClient(Retrofit retrofit, HeaderInterceptor headerInterceptor) {
         this.mHeaderInterceptor = headerInterceptor;
         this.retrofit = retrofit;
     }
-    private void setOkHttpClient(OkHttpClient okHttpClient){
+
+    private void setOkHttpClient(OkHttpClient okHttpClient) {
         this.mOkHttpClient = okHttpClient;
     }
+
     public static RetrofitClient mDefaultRetrofitClient;
     private HeaderInterceptor mHeaderInterceptor;
-    public void putHeader(String key,String value){
-        mHeaderInterceptor.putHeader(key,value);
+
+    public void putHeader(String key, String value) {
+        mHeaderInterceptor.putHeader(key, value);
     }
 
     private static MergeParameterHandler sMergeParameterHandler;
 
-    public static MergeParameterHandler getMergeParameterHandler(){
+    public static MergeParameterHandler getMergeParameterHandler() {
         return sMergeParameterHandler;
     }
 
@@ -62,37 +67,42 @@ public class RetrofitClient {
      * 用户在登录页面登录成功之后
      * 获得token 要调用此方法
      * 方法会重置自动刷新token的标识
+     *
      * @param key
      * @param token
      */
-    public void onUserLoginGetToken(String key,String token){
-        mHeaderInterceptor.onUserLoginGetToken(key,token);
+    public void onUserLoginGetToken(String key, String token) {
+        mHeaderInterceptor.onUserLoginGetToken(key, token);
     }
 
-    public void clearCached(){
+    public void clearCached() {
         try {
             mOkHttpClient.cache().delete();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    public static void init(String baseUrl){
+
+    public static void init(String baseUrl) {
         mDefaultRetrofitClient = RetrofitClient.newBuilder().unsafeSSLSocketFactory().baseUrl(baseUrl).build();
     }
-    public static void init(Builder builder){
+
+    public static void init(Builder builder) {
         mDefaultRetrofitClient = builder.unsafeSSLSocketFactory().build();
     }
-    public static void setDefault(RetrofitClient client){
+
+    public static void setDefault(RetrofitClient client) {
         mDefaultRetrofitClient = client;
     }
 
-    public static Builder newBuilder(){
+    public static Builder newBuilder() {
         return new Builder();
     }
-    public static class Builder{
+
+    public static class Builder {
         CookieJar cookieJar;
         String baseUrl;
-        HashMap<String,String> headers;
+        HashMap<String, String> headers;
         int writeTimeout;
         int readTimeout;
         int connectTimeout;
@@ -103,70 +113,91 @@ public class RetrofitClient {
         OkHttpClient okHttpClient;
         HttpLoggingInterceptor logging;
         ArrayList<Interceptor> interceptors = new ArrayList<>();
-        public Builder(){
+
+        public Builder() {
 
         }
-        public Builder baseUrl(String baseUrl){
+
+        public Builder baseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
             return this;
         }
-        public Builder headers(HashMap<String,String> headers){
+
+        public Builder headers(HashMap<String, String> headers) {
             this.headers = headers;
             return this;
         }
-        public Builder cache(File cache){
+
+        public Builder cache(File cache) {
             this.cache = cache;
             return this;
         }
-        public Builder cookie(CookieJar cookieJar){
-            this.cookieJar =  cookieJar;
+
+        public Builder cookie(CookieJar cookieJar) {
+            this.cookieJar = cookieJar;
             return this;
         }
-        public Builder persistentCookieJar(Context c){
-            this.cookieJar =  new PersistentCookieJar(c.getApplicationContext());
+
+        public Builder persistentCookieJar(Context c) {
+            this.cookieJar = new PersistentCookieJar(c.getApplicationContext());
             return this;
         }
-        public Builder writeTimeout(int writeTimeout){
+
+        public Builder writeTimeout(int writeTimeout) {
             this.writeTimeout = writeTimeout;
             return this;
         }
-        public Builder readTimeout(int readTimeout){
+
+        public Builder readTimeout(int readTimeout) {
             this.readTimeout = readTimeout;
             return this;
         }
-        public Builder connectTimeout(int connectTimeout){
+
+        public Builder connectTimeout(int connectTimeout) {
             this.connectTimeout = connectTimeout;
             return this;
         }
-        public Builder headerCallable(HeaderCallable headerCallable){
+
+        public Builder headerCallable(HeaderCallable headerCallable) {
             this.headerCallable = headerCallable;
             return this;
         }
-        public Builder addInterceptor(Interceptor interceptor){
+
+        public Builder addInterceptor(Interceptor interceptor) {
             interceptors.add(interceptor);
             return this;
         }
 
-        public Builder showLog(boolean showLog){
-            if(!showLog){
+        public Builder showLog(boolean showLog) {
+            return showLog(showLog, null);
+        }
+
+        public Builder showLog(boolean showLog, HttpLoggingInterceptor.Level level) {
+            if (!showLog) {
                 return this;
             }
             this.logging = new HttpLoggingInterceptor(new HttpLoggingInterceptor.Logger() {
 
-                PrettyFormatStrategy  pfs = PrettyFormatStrategy.newBuilder().methodCount(0).methodOffset(5).showThreadInfo(false).build();
+                PrettyFormatStrategy pfs = PrettyFormatStrategy.newBuilder().methodCount(0).methodOffset(5).showThreadInfo(false).build();
+
                 @Override
                 public void log(String message) {
                     if (Platform.get() == Platform.Android) {
 
-                        pfs.log(4,"http",message);
+                        pfs.log(4, "http", message);
 
                     } else {
                         System.out.println("http =====  :  " + message);
                     }
                 }
             });
-            // set your desired log level
-            logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+            if (level == null) {
+                // set your desired log level
+                logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+
+            } else {
+                logging.setLevel(level);
+            }
             return this;
         }
 
@@ -176,101 +207,108 @@ public class RetrofitClient {
          *
          * @return
          */
-        public Builder unsafeSSLSocketFactory(){
-           this.sslFactory =  HttpsDelegate.getUnsafeSslSocketFactory();
+        public Builder unsafeSSLSocketFactory() {
+            this.sslFactory = HttpsDelegate.getUnsafeSslSocketFactory();
 
             return this;
         }
+
         /**
          * 使用预埋证书，校验服务端证书（自签名证书）
+         *
          * @return
          */
-        public Builder unsafeSSLSocketFactory(InputStream[] certificates){
-           this.sslFactory =  HttpsDelegate.getUnsafeSslSocketFactory(certificates);
+        public Builder unsafeSSLSocketFactory(InputStream[] certificates) {
+            this.sslFactory = HttpsDelegate.getUnsafeSslSocketFactory(certificates);
             return this;
         }
-        public Builder addConverterFactory(Converter.Factory factory){
-           this.factory = factory;
+
+        public Builder addConverterFactory(Converter.Factory factory) {
+            this.factory = factory;
             return this;
         }
 
         /**
-         *  使用bks证书和密码管理客户端证书（双向认证），使用预埋证书，校验服务端证书（自签名证书）
+         * 使用bks证书和密码管理客户端证书（双向认证），使用预埋证书，校验服务端证书（自签名证书）
+         *
          * @param certificates
          * @param bksFile
          * @param password
          * @return
          */
-        public Builder safeSSLSocketFactory(InputStream[] certificates, InputStream bksFile, String password){
-           this.sslFactory =  HttpsDelegate.getSslSocketFactory(certificates,bksFile,password);
+        public Builder safeSSLSocketFactory(InputStream[] certificates, InputStream bksFile, String password) {
+            this.sslFactory = HttpsDelegate.getSslSocketFactory(certificates, bksFile, password);
             return this;
         }
-        public Builder okhttpClient(OkHttpClient client){
+
+        public Builder okhttpClient(OkHttpClient client) {
             this.okHttpClient = client;
             return this;
         }
-        public Builder mergeParameterHandler(MergeParameterHandler handler){
+
+        public Builder mergeParameterHandler(MergeParameterHandler handler) {
             RetrofitClient.sMergeParameterHandler = handler;
             return this;
         }
-        public RetrofitClient build(){
+
+        public RetrofitClient build() {
             HeaderInterceptor headerInterceptor = null;
-            if(baseUrl ==null){
+            if (baseUrl == null) {
                 throw new IllegalArgumentException("baseUrl can't be null");
             }
-            if(okHttpClient == null){
+            if (okHttpClient == null) {
 
-                OkHttpClient.Builder builder = OkHttpClientBuilder.builder(cookieJar,cache);
+                OkHttpClient.Builder builder = OkHttpClientBuilder.builder(cookieJar, cache);
 
-                if(connectTimeout>0){
+                if (connectTimeout > 0) {
                     builder.connectTimeout(connectTimeout, TimeUnit.SECONDS);
                 }
-                if(readTimeout>0){
+                if (readTimeout > 0) {
                     builder.readTimeout(readTimeout, TimeUnit.SECONDS);
                 }
-                if(writeTimeout>0){
+                if (writeTimeout > 0) {
                     builder.writeTimeout(writeTimeout, TimeUnit.SECONDS);
 
                 }
-                if(sslFactory != null){
-                    builder.sslSocketFactory(sslFactory.first,sslFactory.second);
+                if (sslFactory != null) {
+                    builder.sslSocketFactory(sslFactory.first, sslFactory.second);
                     builder.hostnameVerifier(new UnSafeHostnameVerifier());
                 }
-               headerInterceptor = new HeaderInterceptor(headerCallable,baseUrl);
-                if(headers !=null){
+                headerInterceptor = new HeaderInterceptor(headerCallable, baseUrl);
+                if (headers != null) {
                     headerInterceptor.putHeaders(headers);
                 }
                 builder.addInterceptor(headerInterceptor);
-                if(logging !=null){
+                if (logging != null) {
                     builder.addInterceptor(logging);
                 }
-                for(Interceptor i:interceptors){
+                for (Interceptor i : interceptors) {
                     builder.addInterceptor(i);
                 }
                 this.okHttpClient = builder.build();
             }
-            
-            this.factory = factory ==null?GsonConverterFactory.create():factory;
-    
-            Retrofit  retrofit = new Retrofit.Builder()
-            .baseUrl(baseUrl)
-            .client(okHttpClient)
-            .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
-            .addConverterFactory(factory)
-            .build();
-            RetrofitClient retrofitClient = new RetrofitClient(retrofit,headerInterceptor);
+
+            this.factory = factory == null ? GsonConverterFactory.create() : factory;
+
+            Retrofit retrofit = new Retrofit.Builder()
+                    .baseUrl(baseUrl)
+                    .client(okHttpClient)
+                    .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
+                    .addConverterFactory(factory)
+                    .build();
+            RetrofitClient retrofitClient = new RetrofitClient(retrofit, headerInterceptor);
             retrofitClient.setOkHttpClient(okHttpClient);
             return retrofitClient;
         }
     }
-    public  <T> T create(Class<T> service){
-        return ProxyHandler.create(retrofit,service);
+
+    public <T> T create(Class<T> service) {
+        return ProxyHandler.create(retrofit, service);
     }
 
-    public static RetrofitClient getDefault(){
+    public static RetrofitClient getDefault() {
         return mDefaultRetrofitClient;
     }
-
 
 
 }
