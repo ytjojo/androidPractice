@@ -1,7 +1,6 @@
 package com.ytjojo.http.download;
 
-import android.os.SystemClock;
-
+import com.ytjojo.http.download.multithread.DownLoadException;
 import com.ytjojo.http.download.multithread.Manager;
 import com.ytjojo.http.download.multithread.ProgressInfo;
 
@@ -30,6 +29,7 @@ import okhttp3.ResponseBody;
 public class ResponseMapper  implements Function<ResponseBody,File> {
     final String mAbsDir;
     final String mFileName;
+    private static int MINPROGRESSSTEP = 65536;
     ObservableEmitter<ProgressInfo> mGenerator ;
     public void subscribe(Observer<ProgressInfo> subscriber){
 
@@ -59,50 +59,65 @@ public class ResponseMapper  implements Function<ResponseBody,File> {
     }
     private long offset = 0;
     ProgressInfo mProgressInfo ;
-    long contentLength;
-    long lastTime;
+    long mContentLength;
+    long mMinProgressByties;
+    volatile boolean mIsCancel;
+    public void setCanele(){
+        mIsCancel = true;
+    }
     @Override
     public File apply(ResponseBody responseBody) {
         RandomAccessFile raf = null;
-        contentLength = responseBody.contentLength();
-        mProgressInfo = new ProgressInfo(0,contentLength, ProgressInfo.State.DOWNLOADING);
+        mContentLength = responseBody.contentLength();
+        mProgressInfo = new ProgressInfo(0, mContentLength, ProgressInfo.State.DOWNLOADING);
         if(mGenerator !=null){
             mGenerator.onNext(mProgressInfo);
         }
-        lastTime = SystemClock.uptimeMillis();
+        if(mContentLength < 81920){
+            mMinProgressByties = 4096;
+        }else {
+            mContentLength = MINPROGRESSSTEP;
+        }
+
         File target = null;
+        BufferedInputStream bis = null;
         try {
             raf = new RandomAccessFile(new File(mAbsDir,mFileName+ Manager.S_FILECACHE_NAME), "rw");
-            BufferedInputStream bis = new BufferedInputStream(responseBody.byteStream());
+            bis = new BufferedInputStream(responseBody.byteStream());
             int bytesRead;
             byte[] buff = new byte[4096];
             while ((bytesRead = bis.read(buff, 0, buff.length)) != -1) {
                 raf.seek(this.offset);
                 raf.write(buff, 0, bytesRead);
                 this.offset = this.offset + bytesRead;
-
-                if(SystemClock.uptimeMillis() >30 +lastTime){
+                if(offset - mProgressInfo.bytesRead > mMinProgressByties){
                     mProgressInfo.bytesRead = offset;
-                    mProgressInfo.contentLength = contentLength;
+                    mProgressInfo.contentLength = mContentLength;
                     mProgressInfo.mState = ProgressInfo.State.DOWNLOADING;
                     if(mGenerator !=null){
                         mGenerator.onNext(mProgressInfo);
                     }
                 }
-                File file = new File(mAbsDir,mFileName +Manager.S_FILECACHE_NAME);
-                target = new File(mAbsDir,mFileName);
-                file.renameTo(target);
-
+                if(mIsCancel){
+                    throw new DownLoadException("下载被取消");
+                }
             }
+            File file = new File(mAbsDir,mFileName +Manager.S_FILECACHE_NAME);
+            target = new File(mAbsDir,mFileName);
+            file.renameTo(target);
             raf.close();
             bis.close();
             responseBody.close();
         } catch (FileNotFoundException e) {
-
+            throw new DownLoadException("文件被删除",e);
         } catch (IOException e) {
+            throw new DownLoadException("下载异常",e);
+        }finally {
+            okhttp3.internal.Util.closeQuietly(raf);
+            okhttp3.internal.Util.closeQuietly(bis);
+            okhttp3.internal.Util.closeQuietly(responseBody);
         }
-
-//        return new File(mFile.getAbsolutePath(),mFile.getName());
+        mGenerator.onComplete();
         return target;
     }
 }

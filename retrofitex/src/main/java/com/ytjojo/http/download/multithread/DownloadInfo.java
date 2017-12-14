@@ -12,6 +12,7 @@ public class DownloadInfo {
     private String filePath;
     public boolean isFinished;
     public boolean isLastOne;
+    final public boolean needSaveToDb;
 
     public String getFilePath() {
         return filePath;
@@ -22,16 +23,15 @@ public class DownloadInfo {
     }
 
     public DownloadInfo(int threadId, long startPos, long endPos,
-                        long compeleteSize, String url) {
+                        long compeleteSize, String url,boolean needSaveToDb) {
         this.threadId = threadId;
         this.startPos = startPos;
         this.endPos = endPos;
         this.compeleteSize = compeleteSize;
         this.url = url;
+        this.needSaveToDb = needSaveToDb;
     }
 
-    public DownloadInfo() {
-    }
 
     public String getUrl() {
         return url;

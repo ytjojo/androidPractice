@@ -7,12 +7,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.lang.reflect.Method;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -23,6 +20,14 @@ import okhttp3.ResponseBody;
  * Created by Administrator on 2016/11/12 0012.
  */
 public class DownloadTask {
+    public static final int IDLE = 0;
+    public static final int STARTED = 1;
+    public static final int DOWNLOAD = 2;
+    public static final int STOPING = 3;
+    public static final int STOPED = 4;
+    public static final int FINISH = 5;
+    public static final int ERROR = 6;
+
     private DownloadInfo mDownloadInfo;
     private File mFile;
     final long startPos;
@@ -30,7 +35,8 @@ public class DownloadTask {
     long compeleteSize;
     private ProgressHandler mProgressHandler;
     private long contentLength;
-    public AtomicBoolean isStoped;
+    final public AtomicInteger mAtomicState;
+
     private long needDownloadLength;
 
     public DownloadTask(File file, ProgressHandler handler, DownloadInfo downloadInfo) {
@@ -40,12 +46,14 @@ public class DownloadTask {
         this.startPos = mDownloadInfo.getStartPos();
         this.endPos = mDownloadInfo.getEndPos();
         this.compeleteSize = mDownloadInfo.getCompeleteSize();
-        this.isStoped = new AtomicBoolean(false);
+        this.mAtomicState = new AtomicInteger(IDLE);
         this.needDownloadLength = downloadInfo.getEndPos() - (startPos + compeleteSize) + 1;
     }
+    public Throwable mLastError;
 
     public void execute(OkHttpClient client, Request request) {
-
+        mAtomicState.set(STARTED);
+        mLastError = null;
         Request rangeRequest = null;
         if(mDownloadInfo.isLastOne){
             rangeRequest = request.newBuilder().header("Range", "bytes=" + (startPos + compeleteSize) + "-" ).build();
@@ -56,9 +64,18 @@ public class DownloadTask {
         BufferedInputStream bis = null;
         ResponseBody responseBody = null;
         FileChannel channelOut = null;
+        if (mProgressHandler.mSignal == ProgressHandler.AsyncAction.STOPE) {
+            mAtomicState.set(STOPED);
+            return;
+        }
         try {
             Response response = client.newCall(rangeRequest).execute();
             if (!response.isSuccessful()) {
+                mAtomicState.set(ERROR);
+                throw new DownLoadException("message = "+ response.message() + " code = "+ response.code());
+            }
+            if (mProgressHandler.mSignal == ProgressHandler.AsyncAction.STOPE) {
+                mAtomicState.set(STOPED);
                 return;
             }
             responseBody = response.body();
@@ -68,9 +85,9 @@ public class DownloadTask {
             raf = new RandomAccessFile(cacheFile, "rwd");
             bis = new BufferedInputStream(responseBody.byteStream());
             channelOut = raf.getChannel();
-
             MappedByteBuffer mappedBuffer = channelOut.map(FileChannel.MapMode.READ_WRITE, startPos + compeleteSize, contentLength);
             raf.seek(startPos + compeleteSize);
+            mAtomicState.set(DOWNLOAD);
             int bytesRead = -1;
             byte[] buff = new byte[4096];
             while ((bytesRead = bis.read(buff, 0, buff.length)) != -1) {
@@ -81,13 +98,16 @@ public class DownloadTask {
                 this.mDownloadInfo.setCompeleteSize(compeleteSize);
                 this.mProgressHandler.setProgress(mDownloadInfo);
                 Logger.e(mDownloadInfo.getThreadId()+ "  "+compeleteSize + " contentLength=" + contentLength);
-                Dao.getInstance().updataInfos(mDownloadInfo.getThreadId(), compeleteSize, mDownloadInfo.getUrl());
+                if(mDownloadInfo.needSaveToDb){
+                    Dao.getInstance().updataInfos(mDownloadInfo.getThreadId(), compeleteSize, mDownloadInfo.getUrl());
+                }
                 if (mProgressHandler.mSignal == ProgressHandler.AsyncAction.STOPE) {
-                    isStoped.set(true);
+                    mAtomicState.set(STOPED);
                     break;
                 }
             }
             boolean isFinish = needDownloadLength == contentLength;
+            mAtomicState.set(FINISH);
 //            Logger.e(mDownloadInfo.getThreadId() + " id  " + contentLength + "完成 start" + mDownloadInfo.getStartPos() + "endpos =" + mDownloadInfo.getEndPos() + "comlete=" + mDownloadInfo.getCompeleteSize());
 
 //            if(!forceStop&& mDownloadInfo.getStartPos() + compeleteSize != mDownloadInfo.getEndPos()+1){
@@ -95,27 +115,18 @@ public class DownloadTask {
 //            }
 
         } catch (FileNotFoundException e) {
-            throw new DownLoadException("文件保存出错", e);
+            mAtomicState.set(ERROR);
+            throw new DownLoadException("找不到文件", e);
         } catch (IOException e) {
-            Logger.e(e.toString() + " --" + e.getLocalizedMessage() + "--" + e.getMessage());
+            mAtomicState.set(ERROR);
+            throw new DownLoadException("下载任务出错",e);
         } finally {
             okhttp3.internal.Util.closeQuietly(raf);
             okhttp3.internal.Util.closeQuietly(bis);
             okhttp3.internal.Util.closeQuietly(channelOut);
-            if (responseBody != null)
-                responseBody.close();
+            okhttp3.internal.Util.closeQuietly(responseBody);
         }
     }
-//    public static void clean(final MappedByteBuffer buffer) throws Exception {
-//        if (buffer == null) {
-//            return;
-//        }
-//        buffer.force();
-//        Method m = FileChannelImpl.class.getDeclaredMethod("unmap",
-//                MappedByteBuffer.class);
-//        m.setAccessible(true);
-//        m.invoke(FileChannelImpl.class, buffer);
-//    }
     public boolean isFinish() {
         return compeleteSize == contentLength;
     }
@@ -124,7 +135,6 @@ public class DownloadTask {
         builder.header("User-Agent", "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.3) Gecko/2008092510 Ubuntu/8.04 (hardy) Firefox/3.0.3");
         builder.header("Accept", "image/gif, image/jpeg, image/pjpeg, image/pjpeg, application/x-shockwave-flash, application/xaml+xml, application/vnd.ms-xpsdocument, application/x-ms-xbap, application/x-ms-application, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, */*");
         builder.header("Accept-Encoding", "utf-8");
-        builder.header("Accept-Charset", "ISO-8859-1,utf-8;q=0.7,*;q=0.7");
         builder.header("connnection", "keep-alive");
     }
 }

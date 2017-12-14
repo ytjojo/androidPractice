@@ -16,5 +16,8 @@ public class DownLoadFileProfile {
     public String lastModified;
     public long contentLength;
     public long compeleteSize;
+    public String errorMsg;
+    public boolean success;
+    public boolean exitNormal;
 
 }

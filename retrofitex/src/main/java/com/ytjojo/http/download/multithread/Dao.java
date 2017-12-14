@@ -99,7 +99,7 @@ public class Dao {
             while (cursor.moveToNext()) {  
                 DownloadInfo info = new DownloadInfo(cursor.getInt(0),  
                         cursor.getLong(1), cursor.getLong(2), cursor.getLong(3),
-                        cursor.getString(4));  
+                        cursor.getString(4),true);
                 list.add(info);  
             }  
         } catch (Exception e) {  

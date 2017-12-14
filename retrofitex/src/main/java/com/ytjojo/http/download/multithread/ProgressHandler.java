@@ -2,8 +2,6 @@ package com.ytjojo.http.download.multithread;
 
 import android.os.SystemClock;
 
-import com.orhanobut.logger.Logger;
-
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -22,12 +20,20 @@ import io.reactivex.functions.Predicate;
 public class ProgressHandler {
     enum AsyncAction {IDLE, STARTED, STOPE, FINISHED, FAILED}
 
+    public static final int IDLE = 0;
+    public static final int STARTED = 1;
+    public static final int DOWNLOAD = 2;
+    public static final int STOPING = 3;
+    public static final int STOPED = 4;
+    public static final int FINISH = 5;
+    public static final int ERROR = 6;
+
     ConcurrentHashMap<Integer, Long> mTaskProgress;
     long contentLength;
     ProgressInfo mProgressInfo;
     long lastCompletSize;
     public volatile AsyncAction mSignal = AsyncAction.IDLE;
-    AtomicLong mAtomicLong = new AtomicLong(0);
+    AtomicLong mAtomicLong = new AtomicLong(IDLE);
     private Manager mManager;
 
     public ProgressHandler(Manager manager) {
@@ -50,7 +56,8 @@ public class ProgressHandler {
     }
 
     public synchronized boolean isAllTaskStoped() {
-        return mAtomicLong.get() == 4;
+        final long state =  mAtomicLong.get();
+        return state == STOPING||state == STOPED;
     }
 
     List<DownloadInfo> mDownloadInfos;
@@ -62,7 +69,7 @@ public class ProgressHandler {
         mTaskProgress.put(info.getThreadId(), info.getCompeleteSize());
     }
 
-    public static final int DELAY = 16;
+    public static final int DELAY = 30;
 
     public Observable<ProgressInfo> getProgress() {
         mLastMillis = SystemClock.uptimeMillis();

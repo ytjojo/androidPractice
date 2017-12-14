@@ -1,9 +1,6 @@
 package com.ytjojo.http.download.multithread;
 
 import com.orhanobut.logger.Logger;
-import com.ytjojo.http.download.ProgressListener;
-import com.ytjojo.http.download.ProgressResponseBody;
-import com.ytjojo.http.download.ResponseMapper;
 import com.ytjojo.http.subscriber.RetryWhenNetworkException;
 import com.ytjojo.http.util.CollectionUtils;
 import com.ytjojo.http.util.TextUtils;
@@ -12,7 +9,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -46,17 +42,6 @@ public class Manager {
 
     public final int MAX_THREAD_COUNT = 3;
     public final int MIN_BLOCK_PERTASK = 1024 * 1024;
-    /**
-     * The target resource resides temporarily under a different URI and the user agent MUST NOT
-     * change the request method if it performs an automatic redirection to that URI.
-     */
-    private final static int HTTP_TEMPORARY_REDIRECT = 307;
-    /**
-     * The target resource has been assigned a new permanent URI and any future references to this
-     * resource ought to use one of the enclosed URIs.
-     */
-    private final static int HTTP_PERMANENT_REDIRECT = 308;
-    private ProgressListener listener;
     final String mAbsDir;
     final String mExpectName;
     String mFileName;
@@ -81,14 +66,25 @@ public class Manager {
         }
     }
 
-    private void postFinishOrStop() {
+    private void reportResult() {
 
         ProgressInfo info = progressHandler.getCurProgressInfo();
         mProgresDisposable.dispose();
         boolean isFinish = progressHandler.isDownloadFinish();
         info.mState = isFinish ? ProgressInfo.State.FINISHED : ProgressInfo.State.STOPE;
-        if (!isFinish) {
-            progressHandler.mAtomicLong.set(0);
+        boolean hasError = false;
+        for(DownloadTask task:mArrayListTasks){
+            if(task.mLastError !=null){
+                hasError = true;
+                break;
+            }
+        }
+        if(hasError){
+            progressHandler.mAtomicLong.set(ProgressHandler.ERROR);
+        }else if (!isFinish) {
+            progressHandler.mAtomicLong.set(ProgressHandler.STOPED);
+        }else {
+            progressHandler.mAtomicLong.set(ProgressHandler.FINISH);
         }
         mProgressEmitter.onNext(info);
         mProgressEmitter.onComplete();
@@ -97,7 +93,6 @@ public class Manager {
     public synchronized void stop() {
         if(progressHandler.mSignal==  ProgressHandler.AsyncAction.STARTED){
             progressHandler.mSignal = ProgressHandler.AsyncAction.STOPE;
-            onCancel();
         }
     }
 
@@ -108,13 +103,13 @@ public class Manager {
     }
 
     public synchronized boolean isConnecting() {
-        return progressHandler.mAtomicLong.get() == 1;
+        return progressHandler.mAtomicLong.get() == ProgressHandler.STARTED;
 
     }
 
     public synchronized boolean isDonwLoading() {
         long state = progressHandler.mAtomicLong.get();
-        if (state > 0 && state != 4) {
+        if (state == ProgressHandler.STARTED&& state == ProgressHandler.DOWNLOAD) {
             return true;
         }
         return false;
@@ -122,7 +117,7 @@ public class Manager {
     }
 
     public synchronized boolean isStarted() {
-        return progressHandler.mAtomicLong.get() > 0;
+        return progressHandler.mAtomicLong.get() > ProgressHandler.IDLE;
 
     }
 
@@ -188,7 +183,7 @@ public class Manager {
     }
     public void onStart(){
         progressHandler.mSignal = ProgressHandler.AsyncAction.STARTED;
-        progressHandler.mAtomicLong.set(1);
+        progressHandler.mAtomicLong.set(ProgressHandler.STARTED);
     }
     public void excute() {
         try {
@@ -203,9 +198,12 @@ public class Manager {
     private File call() throws IOException {
         reset();
         mProgressEmitter.onNext(new ProgressInfo(0, 0, ProgressInfo.State.CONNECT));
-        progressHandler.mAtomicLong.set(2);
         Response response = getOkHttpClient().newCall(getRequest()).execute();
         ResponseBody responseBody = response.body();
+        if(!response.isSuccessful()){
+            mProgressEmitter.onNext(new ProgressInfo(0,0,ProgressInfo.State.ERROR));
+            return null;
+        }
         MediaType mediaType = responseBody.contentType();
         String type = mediaType.type();
         final long contentLength = responseBody.contentLength();
@@ -217,18 +215,19 @@ public class Manager {
             mFileName = mExpectName;
         }
 
-        if (contentLength <= MIN_BLOCK_PERTASK * 1.5 || !isSurpportMultiThread(response)) {
-            ResponseMapper mapper = new ResponseMapper(mAbsDir, mFileName);
-            ResponseBody body = response.newBuilder().body(new ProgressResponseBody(responseBody, listener)).build().body();
-            return mapper.apply(body);
-        }
-
         List<DownloadInfo> downloadInfos = getDownloadInfos(remoteUrl);
         if (downloadInfos == null) {
             downloadInfos = new ArrayList<>();
         }
         if (CollectionUtils.isEmpty(downloadInfos)) {
-            prepareWithoutHistory(downloadInfos);
+            if (contentLength <= MIN_BLOCK_PERTASK * 1.5 || !isSurpportMultiThread(response)) {
+                DownloadInfo downloadInfo = new DownloadInfo(0,mContentLength,
+                        mContentLength, 0, remoteUrl,false);
+                downloadInfo.isLastOne = true;
+                downloadInfos.add(downloadInfo);
+            }else {
+                prepareNew(downloadInfos);
+            }
         } else {
             prepareWithHistory(downloadInfos);
         }
@@ -244,7 +243,7 @@ public class Manager {
 //                Logger.e("subscribe" + progressInfo.toString());
             }
         });
-        progressHandler.mAtomicLong.set(3);
+        progressHandler.mAtomicLong.set(progressHandler.DOWNLOAD);
         //TODO
         try {
             if (mCountDownLatch != null)
@@ -258,8 +257,7 @@ public class Manager {
             rename();
             progressHandler.mSignal = ProgressHandler.AsyncAction.FINISHED;
         }
-        progressHandler.mAtomicLong.set(4);
-        postFinishOrStop();
+        reportResult();
         Logger.e(mAbsDir + "  content " + contentLength);
         return new File(mAbsDir, mFileName);
     }
@@ -289,7 +287,7 @@ public class Manager {
             Dao.getInstance().delete(remoteUrl);
             deleteFile(targetFile);
             deleteFile(cacheFile);
-            prepareWithoutHistory(downloadInfos);
+            prepareNew(downloadInfos);
         }
     }
 
@@ -299,7 +297,7 @@ public class Manager {
         }
     }
 
-    private void prepareWithoutHistory(List<DownloadInfo> downloadInfos) {
+    private void prepareNew(List<DownloadInfo> downloadInfos) {
         if (CollectionUtils.isEmpty(downloadInfos)) {
             long count = mContentLength / MIN_BLOCK_PERTASK;
             if (count > MAX_THREAD_COUNT) {
@@ -321,7 +319,7 @@ public class Manager {
                     endPos = (mContentLength - 1);
                 }
 
-                DownloadInfo downloadInfo = new DownloadInfo(i, i * perBlock, endPos, 0, remoteUrl);
+                DownloadInfo downloadInfo = new DownloadInfo(i, i * perBlock, endPos, 0, remoteUrl,true);
                 if (i == count - 1) {
                     downloadInfo.isLastOne = true;
                 }
@@ -335,23 +333,24 @@ public class Manager {
             }
         }
     }
-
+    ArrayList<DownloadTask> mArrayListTasks;
     private void dispatchExcuteTask(List<DownloadInfo> infos) {
-        ArrayList<DownloadTask> tasks = new ArrayList<>();
+        if(mArrayListTasks == null){
+            mArrayListTasks = new ArrayList<>();
+        }
+        mArrayListTasks.clear();
         int taskCount = 0;
         for (DownloadInfo info : infos) {
             progressHandler.setProgress(info);
             if (!info.isFinished) {
                 taskCount++;
                 DownloadTask task = new DownloadTask(new File(mAbsDir, mFileName + S_FILECACHE_NAME), progressHandler, info);
-                tasks.add(task);
-
-            } else {
+                mArrayListTasks.add(task);
 
             }
         }
         mCountDownLatch = new CountDownLatch(taskCount);
-        for (DownloadTask task : tasks) {
+        for (DownloadTask task : mArrayListTasks) {
             excuteTask(task, mCountDownLatch);
         }
     }
@@ -411,14 +410,6 @@ public class Manager {
     private String getRedirectUrl(Response response) throws Exception {
         return response.header("Location");
     }
-    private static boolean isRedirect(int code) {
-        return code == HttpURLConnection.HTTP_MOVED_PERM
-                || code == HttpURLConnection.HTTP_MOVED_TEMP
-                || code == HttpURLConnection.HTTP_SEE_OTHER
-                || code == HttpURLConnection.HTTP_MULT_CHOICE
-                || code == HTTP_TEMPORARY_REDIRECT
-                || code == HTTP_PERMANENT_REDIRECT;
-    }
 
     public void excuteTask(DownloadTask task, CountDownLatch countDownLatch) {
         Observable.create(new ObservableOnSubscribe<Boolean>() {
@@ -438,6 +429,7 @@ public class Manager {
                         e.printStackTrace();
                         countDownLatch.countDown();
                         Logger.e(e.toString() + "发生错误");
+                        task.mLastError = e;
                     }
 
                     @Override
@@ -452,6 +444,7 @@ public class Manager {
 
                     @Override
                     public void onNext(Boolean finish) {
+                        Logger.e("onNext  finish"+ finish);
                         countDownLatch.countDown();
                     }
                 });
