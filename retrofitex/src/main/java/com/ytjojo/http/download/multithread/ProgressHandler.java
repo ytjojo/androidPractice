@@ -18,7 +18,6 @@ import io.reactivex.functions.Predicate;
  * Created by Administrator on 2016/11/12 0012.
  */
 public class ProgressHandler {
-    enum AsyncAction {IDLE, STARTED, STOPE, FINISHED, FAILED}
 
     public static final int IDLE = 0;
     public static final int STARTED = 1;
@@ -32,7 +31,6 @@ public class ProgressHandler {
     long contentLength;
     ProgressInfo mProgressInfo;
     long lastCompletSize;
-    public volatile AsyncAction mSignal = AsyncAction.IDLE;
     AtomicLong mAtomicLong = new AtomicLong(IDLE);
     private Manager mManager;
 

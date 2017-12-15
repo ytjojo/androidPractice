@@ -33,6 +33,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
+import static io.reactivex.Observable.create;
 import static io.reactivex.plugins.RxJavaPlugins.onError;
 
 /**
@@ -45,54 +46,57 @@ public class Manager {
     final String mAbsDir;
     final String mExpectName;
     String mFileName;
-    final String remoteUrl;
+    final String mRemoteUrl;
     long mContentLength;
     CountDownLatch mCountDownLatch;
-    ProgressHandler progressHandler;
+    ProgressHandler mProgressHandler;
 
 
     public Manager(String absDir, String expectName, String url) {
         this.mAbsDir = absDir;
         this.mExpectName = expectName;
-        this.remoteUrl = url;
-        progressHandler = new ProgressHandler(this);
+        this.mRemoteUrl = url;
+        mProgressHandler = new ProgressHandler(this);
     }
 
     public void reStart(Observer<ProgressInfo> observer) {
         if (!isDonwLoading()) {
             subscribe(this, observer);
-            progressHandler.mSignal = ProgressHandler.AsyncAction.STARTED;
 
         }
     }
 
     private void reportResult() {
 
-        ProgressInfo info = progressHandler.getCurProgressInfo();
+        ProgressInfo info = mProgressHandler.getCurProgressInfo();
         mProgresDisposable.dispose();
-        boolean isFinish = progressHandler.isDownloadFinish();
+        boolean isFinish = mProgressHandler.isDownloadFinish();
         info.mState = isFinish ? ProgressInfo.State.FINISHED : ProgressInfo.State.STOPE;
-        boolean hasError = false;
+        Throwable throwable = null;
         for(DownloadTask task:mArrayListTasks){
-            if(task.mLastError !=null){
-                hasError = true;
+            throwable = task.mLastError;
+            if(throwable !=null){
                 break;
             }
         }
-        if(hasError){
-            progressHandler.mAtomicLong.set(ProgressHandler.ERROR);
+        if(throwable != null){
+            mProgressHandler.mAtomicLong.set(ProgressHandler.ERROR);
+            mProgressEmitter.onError(new DownLoadException("子线程下载任务出错",throwable));
+            return;
         }else if (!isFinish) {
-            progressHandler.mAtomicLong.set(ProgressHandler.STOPED);
+            mProgressHandler.mAtomicLong.set(ProgressHandler.STOPED);
         }else {
-            progressHandler.mAtomicLong.set(ProgressHandler.FINISH);
+            mProgressHandler.mAtomicLong.set(ProgressHandler.FINISH);
         }
         mProgressEmitter.onNext(info);
         mProgressEmitter.onComplete();
     }
 
     public synchronized void stop() {
-        if(progressHandler.mSignal==  ProgressHandler.AsyncAction.STARTED){
-            progressHandler.mSignal = ProgressHandler.AsyncAction.STOPE;
+        long state = mProgressHandler.mAtomicLong.get();
+        if(state==  ProgressHandler.STARTED||state==  ProgressHandler.DOWNLOAD){
+            mProgressHandler.mAtomicLong.set(ProgressHandler.STOPING);
+
         }
     }
 
@@ -103,12 +107,12 @@ public class Manager {
     }
 
     public synchronized boolean isConnecting() {
-        return progressHandler.mAtomicLong.get() == ProgressHandler.STARTED;
+        return mProgressHandler.mAtomicLong.get() == ProgressHandler.STARTED;
 
     }
 
     public synchronized boolean isDonwLoading() {
-        long state = progressHandler.mAtomicLong.get();
+        long state = mProgressHandler.mAtomicLong.get();
         if (state == ProgressHandler.STARTED&& state == ProgressHandler.DOWNLOAD) {
             return true;
         }
@@ -117,7 +121,7 @@ public class Manager {
     }
 
     public synchronized boolean isStarted() {
-        return progressHandler.mAtomicLong.get() > ProgressHandler.IDLE;
+        return mProgressHandler.mAtomicLong.get() > ProgressHandler.IDLE;
 
     }
 
@@ -169,21 +173,18 @@ public class Manager {
 
     private void reset() {
         mContentLength = 0;
-
         mCountDownLatch = null;
-        if (progressHandler != null) {
-            progressHandler.mSignal = ProgressHandler.AsyncAction.IDLE;
-            progressHandler.mProgressInfo = null;
-            if (progressHandler.mTaskProgress != null) {
-                progressHandler.mTaskProgress.clear();
-                progressHandler.mTaskProgress = null;
+        if (mProgressHandler != null) {
+            mProgressHandler.mProgressInfo = null;
+            if (mProgressHandler.mTaskProgress != null) {
+                mProgressHandler.mTaskProgress.clear();
+                mProgressHandler.mTaskProgress = null;
             }
 
         }
     }
     public void onStart(){
-        progressHandler.mSignal = ProgressHandler.AsyncAction.STARTED;
-        progressHandler.mAtomicLong.set(ProgressHandler.STARTED);
+        mProgressHandler.mAtomicLong.set(ProgressHandler.STARTED);
     }
     public void excute() {
         try {
@@ -197,32 +198,40 @@ public class Manager {
 
     private File call() throws IOException {
         reset();
+        if(mProgressHandler.mAtomicLong.get()==ProgressHandler.STOPING){
+            mProgressHandler.mAtomicLong.set(ProgressHandler.STOPED);
+            mProgressEmitter.onNext(new ProgressInfo(0,0,ProgressInfo.State.STOPE));
+            mProgressEmitter.onComplete();
+            return null;
+        }
         mProgressEmitter.onNext(new ProgressInfo(0, 0, ProgressInfo.State.CONNECT));
         Response response = getOkHttpClient().newCall(getRequest()).execute();
         ResponseBody responseBody = response.body();
+
         if(!response.isSuccessful()){
-            mProgressEmitter.onNext(new ProgressInfo(0,0,ProgressInfo.State.ERROR));
+            mProgressHandler.mAtomicLong.set(ProgressHandler.ERROR);
+            mProgressEmitter.onError(new DownLoadException(response.code(),"网络请求错误"+ response.code()));
             return null;
         }
         MediaType mediaType = responseBody.contentType();
         String type = mediaType.type();
         final long contentLength = responseBody.contentLength();
         mContentLength = contentLength;
-        progressHandler.setContentLength(mContentLength);
+        mProgressHandler.setContentLength(mContentLength);
         if (TextUtils.isEmpty(mExpectName)) {
-            mFileName = getFileName(remoteUrl, response);
+            mFileName = getFileName(mRemoteUrl, response);
         } else {
             mFileName = mExpectName;
         }
-
-        List<DownloadInfo> downloadInfos = getDownloadInfos(remoteUrl);
+        List<DownloadInfo> downloadInfos = getDownloadInfosFromDb(mRemoteUrl);
         if (downloadInfos == null) {
             downloadInfos = new ArrayList<>();
         }
         if (CollectionUtils.isEmpty(downloadInfos)) {
-            if (contentLength <= MIN_BLOCK_PERTASK * 1.5 || !isSurpportMultiThread(response)) {
+            boolean isSupportMultThread = isSurpportMultiThread(response);
+            if (contentLength <= MIN_BLOCK_PERTASK * 1.5 || !isSupportMultThread) {
                 DownloadInfo downloadInfo = new DownloadInfo(0,mContentLength,
-                        mContentLength, 0, remoteUrl,false);
+                        mContentLength, 0, mRemoteUrl,isSupportMultThread);
                 downloadInfo.isLastOne = true;
                 downloadInfos.add(downloadInfo);
             }else {
@@ -231,10 +240,15 @@ public class Manager {
         } else {
             prepareWithHistory(downloadInfos);
         }
-
-        progressHandler.setTaskInfos(downloadInfos);
+        if(mProgressHandler.mAtomicLong.get()==ProgressHandler.STOPING){
+            mProgressHandler.mAtomicLong.set(ProgressHandler.STOPED);
+            mProgressEmitter.onNext(new ProgressInfo(0,0,ProgressInfo.State.STOPE));
+            mProgressEmitter.onComplete();
+            return null;
+        }
+        mProgressHandler.setTaskInfos(downloadInfos);
         dispatchExcuteTask(downloadInfos);
-        mProgresDisposable = progressHandler.getProgress().subscribe(new Consumer<ProgressInfo>() {
+        mProgresDisposable = mProgressHandler.getProgress().subscribe(new Consumer<ProgressInfo>() {
             @Override
             public void accept(ProgressInfo progressInfo) {
                 if (!mProgressEmitter.isDisposed()) {
@@ -243,8 +257,7 @@ public class Manager {
 //                Logger.e("subscribe" + progressInfo.toString());
             }
         });
-        progressHandler.mAtomicLong.set(progressHandler.DOWNLOAD);
-        //TODO
+        mProgressHandler.mAtomicLong.set(mProgressHandler.DOWNLOAD);
         try {
             if (mCountDownLatch != null)
                 mCountDownLatch.await();
@@ -253,9 +266,8 @@ public class Manager {
         }
 
         if (checkFileFinish(new File(mAbsDir, mFileName + S_FILECACHE_NAME), mContentLength)) {
-            Dao.getInstance().delete(remoteUrl);
+            Dao.getInstance().delete(mRemoteUrl);
             rename();
-            progressHandler.mSignal = ProgressHandler.AsyncAction.FINISHED;
         }
         reportResult();
         Logger.e(mAbsDir + "  content " + contentLength);
@@ -284,7 +296,7 @@ public class Manager {
         File targetFile = new File(mAbsDir, mFileName);
         File cacheFile = new File(mAbsDir, mFileName + S_FILECACHE_NAME);
         if (!isValideFile(cacheFile, expectLength)) {
-            Dao.getInstance().delete(remoteUrl);
+            Dao.getInstance().delete(mRemoteUrl);
             deleteFile(targetFile);
             deleteFile(cacheFile);
             prepareNew(downloadInfos);
@@ -319,7 +331,7 @@ public class Manager {
                     endPos = (mContentLength - 1);
                 }
 
-                DownloadInfo downloadInfo = new DownloadInfo(i, i * perBlock, endPos, 0, remoteUrl,true);
+                DownloadInfo downloadInfo = new DownloadInfo(i, i * perBlock, endPos, 0, mRemoteUrl,true);
                 if (i == count - 1) {
                     downloadInfo.isLastOne = true;
                 }
@@ -341,10 +353,10 @@ public class Manager {
         mArrayListTasks.clear();
         int taskCount = 0;
         for (DownloadInfo info : infos) {
-            progressHandler.setProgress(info);
+            mProgressHandler.setProgress(info);
             if (!info.isFinished) {
                 taskCount++;
-                DownloadTask task = new DownloadTask(new File(mAbsDir, mFileName + S_FILECACHE_NAME), progressHandler, info);
+                DownloadTask task = new DownloadTask(new File(mAbsDir, mFileName + S_FILECACHE_NAME), mProgressHandler, info);
                 mArrayListTasks.add(task);
 
             }
@@ -373,7 +385,7 @@ public class Manager {
     }
 
 
-    public List<DownloadInfo> getDownloadInfos(String url) {
+    public List<DownloadInfo> getDownloadInfosFromDb(String url) {
         return Dao.getInstance().getInfos(url);
     }
 
@@ -412,7 +424,7 @@ public class Manager {
     }
 
     public void excuteTask(DownloadTask task, CountDownLatch countDownLatch) {
-        Observable.create(new ObservableOnSubscribe<Boolean>() {
+        create(new ObservableOnSubscribe<Boolean>() {
             @Override
             public void subscribe(ObservableEmitter<Boolean> e) {
                 task.execute(getOkHttpClient(), getRequest());
@@ -456,7 +468,7 @@ public class Manager {
         if(manager.isDonwLoading()){
             return;
         }
-        Observable.create(new ObservableOnSubscribe<ProgressInfo>() {
+       Observable<ProgressInfo> observable =  Observable.create(new ObservableOnSubscribe<ProgressInfo>() {
             @Override
             public void subscribe(@NonNull ObservableEmitter<ProgressInfo> e) throws Exception {
                 manager.mProgressEmitter = e;
@@ -471,7 +483,8 @@ public class Manager {
             }
         }).subscribeOn(Schedulers.io())
                 .retryWhen(new RetryWhenNetworkException())
-                .observeOn(AndroidSchedulers.mainThread()).subscribe(subscriber);
+                .observeOn(AndroidSchedulers.mainThread());
+        observable.subscribe(subscriber);
         manager.onStart();
 
 
@@ -480,7 +493,7 @@ public class Manager {
 
     public Request getRequest() {
         Request.Builder builder = new Request.Builder();
-        builder.url(remoteUrl);
+        builder.url(mRemoteUrl);
         return builder.build();
     }
 

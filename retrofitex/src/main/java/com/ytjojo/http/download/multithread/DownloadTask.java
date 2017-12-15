@@ -64,7 +64,7 @@ public class DownloadTask {
         BufferedInputStream bis = null;
         ResponseBody responseBody = null;
         FileChannel channelOut = null;
-        if (mProgressHandler.mSignal == ProgressHandler.AsyncAction.STOPE) {
+        if (mProgressHandler.mAtomicLong.get() == ProgressHandler.STOPING) {
             mAtomicState.set(STOPED);
             return;
         }
@@ -72,9 +72,9 @@ public class DownloadTask {
             Response response = client.newCall(rangeRequest).execute();
             if (!response.isSuccessful()) {
                 mAtomicState.set(ERROR);
-                throw new DownLoadException("message = "+ response.message() + " code = "+ response.code());
+                throw new DownLoadException(response.code(),"message = "+ response.message());
             }
-            if (mProgressHandler.mSignal == ProgressHandler.AsyncAction.STOPE) {
+            if (mProgressHandler.mAtomicLong.get() == ProgressHandler.STOPING) {
                 mAtomicState.set(STOPED);
                 return;
             }
@@ -101,7 +101,7 @@ public class DownloadTask {
                 if(mDownloadInfo.needSaveToDb){
                     Dao.getInstance().updataInfos(mDownloadInfo.getThreadId(), compeleteSize, mDownloadInfo.getUrl());
                 }
-                if (mProgressHandler.mSignal == ProgressHandler.AsyncAction.STOPE) {
+                if (mProgressHandler.mAtomicLong.get() == ProgressHandler.STOPING) {
                     mAtomicState.set(STOPED);
                     break;
                 }
@@ -136,5 +136,26 @@ public class DownloadTask {
         builder.header("Accept", "image/gif, image/jpeg, image/pjpeg, image/pjpeg, application/x-shockwave-flash, application/xaml+xml, application/vnd.ms-xpsdocument, application/x-ms-xbap, application/x-ms-application, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, */*");
         builder.header("Accept-Encoding", "utf-8");
         builder.header("connnection", "keep-alive");
+
+//        builder.header("Accept-Encoding","identity");//禁止Gzip压缩
+        /**
+         * HTTP Header中Accept-Encoding 是浏览器发给服务器,声明浏览器支持的编码类型[1]
+         常见的有
+         Accept-Encoding: compress, gzip //支持compress 和gzip类型
+         Accept-Encoding:　//默认是identity
+         Accept-Encoding: *　//支持所有类型 Accept-Encoding: compress;q=0.5, gzip;q=1.0//按顺序支持 gzip , compress
+         Accept-Encoding: gzip;q=1.0, identity; q=0.5, *;q=0 // 按顺序支持 gzip , identity
+         服务器返回的对应的类型编码header是 content-encoding.服务器处理accept-encoding的规则如下所示　1. 如果服务器可以返回定义在Accept-Encoding 中的任何一种Encoding类型, 那么处理成功(除非q的值等于0, 等于0代表不可接受)　
+         2. * 代表任意一种Encoding类型 (除了在Accept-Encoding中显示定义的类型)　
+         3.如果有多个Encoding同时匹配, 按照q值顺序排列　
+         4. identity总是可被接受的encoding类型(除非显示的标记这个类型q=0) ,
+         如果Accept-Encoding的值是空, 那么只有identity是会被接受的类型
+         如果Accept-Encoding中的所有类型服务器都没发返回, 那么应该返回406错误给客户Duan
+         如果request中没有Accept-Encoding 那么服务器会假设所有的Encoding都是可以被接受的。
+         如果Accept-Encoding中有identity 那么应该优先返回identity (除非有q值的定义,或者你认为另外一种类型是更有意义的)
+         注意:
+         如果服务器不支持identity 并且浏览器没有发送Accept-Encoding,那么服务器应该倾向于使用HTTP1.0中的 "gzip" and "compress" , 服务器可能按照客户Duan类型 发送更适合的encoding类型大部分HTTP1.0的客户Duan无法处理q值
+         */
+
     }
 }

@@ -1,7 +1,7 @@
 package com.ytjojo.http.download.multithread;
 
 public class ProgressInfo {
-    public enum State {CONNECT, DOWNLOADING, STOPE, FINISHED, ERROR}
+    public enum State {CONNECT, DOWNLOADING, STOPE, FINISHED}
 
     public ProgressInfo(long bytesRead, long contentLength, State state) {
         this.bytesRead = bytesRead;

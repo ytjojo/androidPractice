@@ -20,6 +20,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.TypeAdapter;
 import com.google.gson.internal.$Gson$Types;
+import com.ytjojo.http.EntireStringResult;
 import com.ytjojo.http.ServerResponse;
 import com.ytjojo.http.exception.APIException;
 import com.ytjojo.http.exception.JsonException;
@@ -85,9 +86,18 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 		}
 		try{
 			if (type instanceof Class) {
+				if(type == EntireStringResult.class){
+					return (T) new EntireStringResult(value);
+				}
 				if (type == String.class) {
 					JsonElement bodyJson = response.get("body");
-					return (T)(bodyJson!=null?bodyJson.getAsString():"");
+					if(bodyJson ==null){
+						return null;
+					}
+					if(bodyJson.isJsonPrimitive()){
+						return (T) bodyJson.getAsString();
+					}
+					return (T)(mGson.toJson(bodyJson));
 				}
 				if (type == Object.class) {
 					return (T) Irrelevant.INSTANCE;
@@ -128,7 +138,9 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 		}
 	}
 	private T parse(JsonElement root,String json){
-
+		if(type == EntireStringResult.class){
+			return (T) new EntireStringResult(json);
+		}
 		if (type == Object.class) {
 			return (T) Irrelevant.INSTANCE;
 		}

@@ -67,6 +67,9 @@ public class ResponseMapper  implements Function<ResponseBody,File> {
     }
     @Override
     public File apply(ResponseBody responseBody) {
+        if(mIsCancel){
+            throw new DownLoadException("下载被取消");
+        }
         RandomAccessFile raf = null;
         mContentLength = responseBody.contentLength();
         mProgressInfo = new ProgressInfo(0, mContentLength, ProgressInfo.State.DOWNLOADING);

@@ -2,8 +2,10 @@ package com.ytjojo.practice;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.ytjojo.http.coverter.DateTypeAdapter;
-import com.ytjojo.http.coverter.GMTDateUtils;
 import com.ytjojo.http.coverter.UTCDateUtils;
 
 import org.junit.Test;
@@ -98,5 +100,22 @@ public class GsonTest {
 //        date = new Date();
 //        date.setTime(m);
         System.out.println(date.toString());
+    }
+    @Test
+    public void testString(){
+        Gson gson =new Gson();
+//        String json= "{\"body\":{\"birthday\":\"2016-11-22\"}}";
+        String json= "{\"body\":\"2016-11-22\"}";
+        System.out.println(json);
+        JsonElement element=  gson.fromJson(json, JsonElement.class);
+        JsonObject jsonObject = (JsonObject) element;
+        JsonElement element1= jsonObject.get("body");
+        if(element1.isJsonPrimitive()){
+            JsonPrimitive jsonPrimitive = (JsonPrimitive) element1;
+            System.out.println(jsonPrimitive.getAsString());
+        }else if(element1.isJsonObject()){
+            JsonObject jsonObject1 = (JsonObject) element1;
+            System.out.println(gson.toJson(jsonObject1));
+        }
     }
 }
