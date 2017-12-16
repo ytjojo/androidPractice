@@ -14,6 +14,7 @@ public class DownLoadFileProfile {
     public String finishedDate;
     public String eTag;
     public String lastModified;
+    public int taskCount;
     public long contentLength;
     public long compeleteSize;
     public String errorMsg;
