@@ -223,54 +223,58 @@ public class Manager {
         } else {
             mFileName = mExpectName;
         }
-        List<DownloadInfo> downloadInfos = getDownloadInfosFromDb(mRemoteUrl);
-        if (downloadInfos == null) {
-            downloadInfos = new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(downloadInfos)) {
-            boolean isSupportMultThread = isSurpportMultiThread(response);
-            if (contentLength <= MIN_BLOCK_PERTASK * 1.5 || !isSupportMultThread) {
-                DownloadInfo downloadInfo = new DownloadInfo(0,mContentLength,
-                        mContentLength, 0, mRemoteUrl,isSupportMultThread);
-                downloadInfo.isLastOne = true;
-                downloadInfos.add(downloadInfo);
-            }else {
-                prepareNew(downloadInfos);
+        try{
+            List<DownloadInfo> downloadInfos = getDownloadInfosFromDb(mRemoteUrl);
+            if (downloadInfos == null) {
+                downloadInfos = new ArrayList<>();
             }
-        } else {
-            prepareWithHistory(downloadInfos);
-        }
-        if(mProgressHandler.mAtomicLong.get()==ProgressHandler.STOPING){
-            mProgressHandler.mAtomicLong.set(ProgressHandler.STOPED);
-            mProgressEmitter.onNext(new ProgressInfo(0,0,ProgressInfo.State.STOPE));
-            mProgressEmitter.onComplete();
-            return null;
-        }
-        mProgressHandler.setTaskInfos(downloadInfos);
-        dispatchExcuteTask(downloadInfos);
-        mProgresDisposable = mProgressHandler.getProgress().subscribe(new Consumer<ProgressInfo>() {
-            @Override
-            public void accept(ProgressInfo progressInfo) {
-                if (!mProgressEmitter.isDisposed()) {
-                    Manager.this.mProgressEmitter.onNext(progressInfo);
+            if (CollectionUtils.isEmpty(downloadInfos)) {
+                boolean isSupportMultThread = isSurpportMultiThread(response);
+                if (contentLength <= MIN_BLOCK_PERTASK * 1.5 || !isSupportMultThread) {
+                    DownloadInfo downloadInfo = new DownloadInfo(0,mContentLength,
+                            mContentLength, 0, mRemoteUrl,isSupportMultThread);
+                    downloadInfo.isLastOne = true;
+                    downloadInfos.add(downloadInfo);
+                }else {
+                    prepareNew(downloadInfos);
                 }
-//                Logger.e("subscribe" + progressInfo.toString());
+            } else {
+                prepareWithHistory(downloadInfos);
             }
-        });
-        mProgressHandler.mAtomicLong.set(mProgressHandler.DOWNLOAD);
-        try {
-            if (mCountDownLatch != null)
+            if(mProgressHandler.mAtomicLong.get()==ProgressHandler.STOPING){
+                mProgressHandler.mAtomicLong.set(ProgressHandler.STOPED);
+                mProgressEmitter.onNext(new ProgressInfo(0,0,ProgressInfo.State.STOPE));
+                mProgressEmitter.onComplete();
+                return null;
+            }
+            mProgressHandler.setTaskInfos(downloadInfos);
+            dispatchExcuteTask(downloadInfos);
+            mProgresDisposable = mProgressHandler.getProgress().subscribe(new Consumer<ProgressInfo>() {
+                @Override
+                public void accept(ProgressInfo progressInfo) {
+                    if (!mProgressEmitter.isDisposed()) {
+                        Manager.this.mProgressEmitter.onNext(progressInfo);
+                    }
+//                Logger.e("subscribe" + progressInfo.toString());
+                }
+            });
+            mProgressHandler.mAtomicLong.set(mProgressHandler.DOWNLOAD);
+
+            if (mCountDownLatch != null){
                 mCountDownLatch.await();
+            }
+
+            if (checkFileFinish(new File(mAbsDir, mFileName + S_FILECACHE_NAME), mContentLength)) {
+                Dao.getInstance().delete(mRemoteUrl);
+                rename();
+            }
+            reportResult();
+            Logger.e(mAbsDir + "  content " + contentLength);
         } catch (InterruptedException e) {
             e.printStackTrace();
+        }finally {
+            Dao.getInstance().closeDatabase();
         }
-
-        if (checkFileFinish(new File(mAbsDir, mFileName + S_FILECACHE_NAME), mContentLength)) {
-            Dao.getInstance().delete(mRemoteUrl);
-            rename();
-        }
-        reportResult();
-        Logger.e(mAbsDir + "  content " + contentLength);
         return new File(mAbsDir, mFileName);
     }
 
