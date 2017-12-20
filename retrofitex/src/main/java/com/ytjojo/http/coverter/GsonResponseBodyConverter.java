@@ -53,6 +53,9 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 		String value = bufferedSource.readUtf8();
 		bufferedSource.close();
 		if (TextUtils.isEmpty(value)) {
+			if(type == Object.class){
+				return (T) Irrelevant.INSTANCE;
+			}
 			throw new APIException(-3, "response is null");
 		}
 		int code = Integer.MAX_VALUE;
