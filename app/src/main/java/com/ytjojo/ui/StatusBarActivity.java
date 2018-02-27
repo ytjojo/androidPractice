@@ -11,8 +11,6 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 
-import com.ytjojo.practice.R;
-
 /**
  * Created by Administrator on 2016/10/13 0013.
  */
@@ -21,8 +19,12 @@ public class StatusBarActivity extends BaseActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_statusbar);
-        setStatusBarColor(this,getResources().getColor(R.color.colorPrimaryDark));
+
+    }
+
+    @Override
+    public Class<? extends BaseFragment> getRootFragmentClass() {
+        return Fragment1.class;
     }
 
     /**
