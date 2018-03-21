@@ -1,6 +1,8 @@
 package com.ytjojo.json;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.InstanceCreator;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
 import com.google.gson.internal.$Gson$Types;
@@ -12,13 +14,33 @@ import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.Collection;
+import java.util.Map;
 
 /**
  * 自定义CollectionTypeAdapterFactory，使json内的数组为null时，返回空数组而不是null对象
  */
 public final class CollectionTypeAdapterFactory implements TypeAdapterFactory {
+
+
+    public static GsonBuilder register(GsonBuilder gsonBulder){
+        try {
+            Class builder = (Class) gsonBulder.getClass();
+            Field f = builder.getDeclaredField("instanceCreators");
+            f.setAccessible(true);
+            Map<Type, InstanceCreator<?>> val = (Map<Type, InstanceCreator<?>>) f.get(gsonBulder);//得到此属性的值
+            //注册数组的处理器
+            gsonBulder.registerTypeAdapterFactory(new CollectionTypeAdapterFactory(new ConstructorConstructor(val)));
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+        return gsonBulder;
+
+    }
     private final ConstructorConstructor constructorConstructor;
 
     public CollectionTypeAdapterFactory(ConstructorConstructor constructorConstructor) {
