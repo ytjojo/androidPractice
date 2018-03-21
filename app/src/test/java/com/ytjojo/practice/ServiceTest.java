@@ -1,5 +1,6 @@
 package com.ytjojo.practice;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.ytjojo.domin.request.LoginRequest;
 import com.ytjojo.domin.vo.LoginResponse;
@@ -14,9 +15,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 
-import io.reactivex.ObservableTransformer;
 import io.reactivex.Observer;
-import io.reactivex.Scheduler;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Function;
@@ -161,7 +160,7 @@ public class ServiceTest {
 
     @Test
     public void array() {
-        ProxyHandler.create(retrofit, GitApiInterface.class).getAddrArea(null, 0).subscribe(new Observer<JsonObject>() {
+        ProxyHandler.create(retrofit, GitApiInterface.class).getAddrArea(null, 0).subscribe(new Observer<JsonArray>() {
             @Override
             public void onError(Throwable e) {
 
@@ -178,7 +177,7 @@ public class ServiceTest {
             }
 
             @Override
-            public void onNext(JsonObject jsonObject) {
+            public void onNext(JsonArray jsonObject) {
                 System.out.print(jsonObject.toString());
             }
         });

@@ -1,5 +1,6 @@
 package com.ytjojo.http;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.ytjojo.domin.request.LoginRequest;
 import com.ytjojo.domin.response.OrganAddrArea;
@@ -27,61 +28,76 @@ import retrofit2.http.Url;
 
 public interface GitApiInterface {
 
-        @Multipart @POST("File/upload")
-        Observable<Boolean> uploadImage(
-                @Header("X-Access-Token") String token,
-                @Part("catalog") RequestBody catalog,
-                @Part("doctorId") RequestBody id,
-                @Part("mode") RequestBody mode,
-                @Part MultipartBody.Part image
-        );
-        @Multipart
-        @POST("File/upload") Observable<Boolean> uploadImagePartMap(
-                @PartMap Map<String, RequestBody> params
-        );
-        @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/logon/login")
-        Observable<LoginResponse> loginAttr(@BodyJsonAttr("uid") String uid, @BodyJsonAttr("pwd") String pwd, @BodyJsonAttr("rid") String rid, @BodyJsonAttr("forAccessToken") boolean forAccessToken);
-        @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/logon/login")
-        Observable<LoginResponse> login(@Body LoginRequest request);
-        @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/logon/login")
-        Observable<LoginResponse.UserRoles> loginRoles(@Body LoginRequest request);
-        @POST()
-        @Headers({
+    @Multipart
+    @POST("File/upload")
+    Observable<Boolean> uploadImage(
+            @Header("X-Access-Token") String token,
+            @Part("catalog") RequestBody catalog,
+            @Part("doctorId") RequestBody id,
+            @Part("mode") RequestBody mode,
+            @Part MultipartBody.Part image
+    );
+
+    @Multipart
+    @POST("File/upload")
+    Observable<Boolean> uploadImagePartMap(
+            @PartMap Map<String, RequestBody> params
+    );
+
+    @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/logon/login")
+    Observable<LoginResponse> loginAttr(@BodyJsonAttr("uid") String uid, @BodyJsonAttr("pwd") String pwd, @BodyJsonAttr("rid") String rid, @BodyJsonAttr("forAccessToken") boolean forAccessToken);
+
+    @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/logon/login")
+    Observable<LoginResponse> login(@Body LoginRequest request);
+
+    @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/logon/login")
+    Observable<LoginResponse.UserRoles> loginRoles(@Body LoginRequest request);
+
+    @POST()
+    @Headers({
             "CHACHE_DYNAMIC_KEY:11",
             "CHACHE_DYNAMIC_KEY_GROUP:sdw",
             "CACHEINTERCEPTOR_CACHE_TIME:36000",
-        })
-        @NgariJsonPost(method = "getOgranAddrArea",serviceId = "eh.organ")
-        Observable<OrganAddrArea> loginWithArray(@Url String url, @ArrayItem int id );
+    })
+    @NgariJsonPost(method = "getOgranAddrArea", serviceId = "eh.organ")
+    Observable<OrganAddrArea> loginWithArray(@Url String url, @ArrayItem int id);
 
-        @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/*.jsonRequest")
-        @NgariJsonPost(method = "getPatientNum",serviceId = "eh.relationDoctor")
-        Observable<JsonObject> getPatientNum(@ArrayItem int id );
+    @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/*.jsonRequest")
+    @NgariJsonPost(method = "getPatientNum", serviceId = "eh.relationDoctor")
+    Observable<JsonObject> getPatientNum(@ArrayItem int id);
 
 
-        @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/*.jsonRequest")
-        @Headers({
+    @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/*.jsonRequest")
+    @Headers({
             "X-Service-Id:eh.relationDoctor",
             "X-Service-Method:getPatientNum"
-        })
-        Observable<JsonObject> getPatientNumByHeader(@Body ArrayList<Integer> integers);
-        @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/*.jsonRequest")
-        @Headers({
+    })
+    Observable<JsonObject> getPatientNumByHeader(@Body ArrayList<Integer> integers);
+
+    @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/*.jsonRequest")
+    @Headers({
             "X-Service-Id:eh.unLoginSevice",
             "X-Service-Method:getAddrArea",
             "CHACHE_DYNAMIC_KEY:getAddrArea",
             "CHACHE_DYNAMIC_KEY_GROUP:eh.unLoginSevice",
-            "CACHEINTERCEPTOR_CACHE_TIME:60"
-        })
-        Observable<JsonObject> getAddrArea(@ArrayItem String arg,@ArrayItem int areaCode );
-        @GET("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/eh.mpi.dictionary.PatientType.dic?limit=0")
-        Observable<JsonObject> getHealthCardTypeDict();
-        @GET("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/eh.mpi.dictionary.PatientType.dic?limit=0")
-        @Headers({
-                CacheHeaderTime.CACHE_3_MIN,
-                "Cache-Control: public, max-age=180"
-        })
-        Observable<Void> getHealthCardTypeDict1();
+            "CACHEINTERCEPTOR_CACHE_TIME:1200"
+    })
+    Observable<JsonArray> getAddrArea(@ArrayItem String arg, @ArrayItem int areaCode);
+
+    @GET("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/eh.mpi.dictionary.PatientType.dic?limit=0")
+    Observable<JsonObject> getHealthCardTypeDict();
+
+    @GET("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/eh.mpi.dictionary.PatientType.dic?limit=0")
+    @Headers({
+            CacheHeaderTime.CACHE_3_MIN,
+            "Cache-Control: public, max-age=180"
+    })
+    Observable<Void> getHealthCardTypeDict1();
 
 
-    }
+    @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/*.jsonRequest")
+    @NgariJsonPost(serviceId = "eh.unLoginSevice", method = "getAddrArea")
+    Observable<JsonArray> getAddrArea1(@ArrayItem String arg, @ArrayItem int areaCode);
+
+
+}

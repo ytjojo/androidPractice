@@ -6,8 +6,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.ytjojo.domin.request.LoginRequest;
 import com.ytjojo.http.Uri;
-import java.io.IOException;
+import com.ytjojo.http.cache.Cache;
+
 import org.junit.Test;
+
+import java.io.IOException;
 
 /**
  * Created by Administrator on 2017/7/24 0024.
@@ -53,5 +56,14 @@ public class UriTest {
 			jsonObject.add("1",je);
 		}
 		System.out.println(jsonObject.toString());
+	}
+
+	@Test
+	public void testKey(){
+	  String str1 = 	Cache.key("http://116.62.190.116:8888/jenkins/job/uploadAchives/"+"$d$d$d$abc" +"$g$g$g$123");
+		System.out.println(str1);
+		String str2 = 	Cache.key("http://116.62.190.116:8888/jenkins/job/uploadAchives/"+"$d$d$d$abc" +"$g$g$g$4652");
+		System.out.println(str2);
+
 	}
 }

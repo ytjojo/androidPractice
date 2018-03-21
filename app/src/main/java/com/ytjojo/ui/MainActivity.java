@@ -21,7 +21,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 
-import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 import com.orhanobut.logger.Logger;
 import com.ytjojo.domin.request.LoginRequest;
 import com.ytjojo.domin.response.OrganAddrArea;
@@ -97,8 +97,9 @@ public class MainActivity extends AppCompatActivity {
         toolbar.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                testGetDic();
-                //testArray();
+//                testGetDic();
+//                testArray();
+                getAddrArea();
                 if ((mDecorView.getSystemUiVisibility() & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
                     hideSystemUI();
 
@@ -117,7 +118,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
             }
         });
-//        login();
+        login();
     }
 
     GitApiInterface mGitApiInterface;
@@ -159,10 +160,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void getAddrArea() {
         GitApiInterface gitApiInterface = RetrofitClient.getDefault().create(GitApiInterface.class);
-        LoginRequest request = new LoginRequest();
         gitApiInterface.getAddrArea(null, 0)
                 .compose(RxHttpHelper.applySchedulers())
-                .subscribe(new Observer<JsonObject>() {
+                .subscribe(new Observer<JsonArray>() {
 
                     @Override
                     public void onError(Throwable e) {
@@ -182,7 +182,7 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void onNext(JsonObject response) {
+                    public void onNext(JsonArray response) {
 
                         Logger.e(response.toString());
                     }

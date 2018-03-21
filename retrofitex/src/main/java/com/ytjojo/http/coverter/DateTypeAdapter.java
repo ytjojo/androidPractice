@@ -98,7 +98,7 @@ public final class DateTypeAdapter extends TypeAdapter<Date> {
       out.nullValue();
       return;
     }
-    String dateFormatAsString = enUsFormat.format(value);
+    String dateFormatAsString = FORMAT_YYYMMDDHHMM.format(value);
     out.value(dateFormatAsString);
   }
 }

@@ -28,9 +28,10 @@ public class BaseApplication extends Application {
     public void onCreate() {
         super.onCreate();
         Dao.init(this);
-        RetrofitClient.init(RetrofitClient.newBuilder().baseUrl("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/")
+        RetrofitClient.init(RetrofitClient.newBuilder().baseUrl("http://ngaribata.ngarihealth.com:8280/ehealth-base-test/")
                 .showLog(true).cookie(new CookiesManager(this))
                 .cache(getCacheDir())
+                .mergeParameterHandler(NgariParamHandlar.create())
                 .cookie(PersistentCookieJar.get(this))
                 .addInterceptor(new ReceivedCookiesInterceptor()));
         sInstance = this;
