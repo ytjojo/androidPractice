@@ -67,7 +67,7 @@ public class HttpsDelegate {
                 trustManager = new UnSafeTrustManager();
             }
             sslContext.init(keyManagers, new TrustManager[]{trustManager},null);
-            sslParams =new Pair<>(sslContext.getSocketFactory(),trustManager);
+            sslParams =new Pair<>(SSLSocketFactoryCompat.get(),trustManager);
             return sslParams;
         } catch (NoSuchAlgorithmException e)
         {

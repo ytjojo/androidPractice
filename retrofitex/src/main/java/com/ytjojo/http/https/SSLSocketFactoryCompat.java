@@ -20,7 +20,7 @@ import javax.net.ssl.X509TrustManager;
 
 
 public class SSLSocketFactoryCompat extends SSLSocketFactory {
-    private SSLSocketFactory defaultFactory;
+    private static volatile  SSLSocketFactory defaultFactory;
     // Android 5.0+ (API level21) provides reasonable default settings
     // but it still allows SSLv3
     // https://developer.android.com/about/versions/android-5.0-changes.html#ssl
@@ -91,25 +91,30 @@ public class SSLSocketFactoryCompat extends SSLSocketFactory {
     }
     static SSLSocketFactoryCompat sSSLSocketFactoryCompat;
     public static SSLSocketFactoryCompat get() {
-        if (sSSLSocketFactoryCompat != null) {
-            return sSSLSocketFactoryCompat;
+        if (sSSLSocketFactoryCompat == null) {
+            synchronized (SSLSocketFactoryCompat.class){
+                if(sSSLSocketFactoryCompat == null){
+                    final X509TrustManager trustAllCert =
+                            new X509TrustManager() {
+                                @Override
+                                public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                                }
+
+                                @Override
+                                public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                                }
+
+                                @Override
+                                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                                    return new java.security.cert.X509Certificate[]{};
+                                }
+                            };
+                    sSSLSocketFactoryCompat = get(trustAllCert);
+                }
+            }
         }
-        final X509TrustManager trustAllCert =
-                new X509TrustManager() {
-                    @Override
-                    public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
-                    }
 
-                    @Override
-                    public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
-                    }
-
-                    @Override
-                    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                        return new java.security.cert.X509Certificate[]{};
-                    }
-                };
-         return sSSLSocketFactoryCompat = get(trustAllCert);
+         return sSSLSocketFactoryCompat;
     }
 
     private void upgradeTLS(SSLSocket ssl) {
