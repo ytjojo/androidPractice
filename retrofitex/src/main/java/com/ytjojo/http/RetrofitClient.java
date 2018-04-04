@@ -84,11 +84,11 @@ public class RetrofitClient {
     }
 
     public static void init(String baseUrl) {
-        mDefaultRetrofitClient = RetrofitClient.newBuilder().unsafeSSLSocketFactory().baseUrl(baseUrl).build();
+        mDefaultRetrofitClient = RetrofitClient.newBuilder().baseUrl(baseUrl).build();
     }
 
     public static void init(Builder builder) {
-        mDefaultRetrofitClient = builder.unsafeSSLSocketFactory().build();
+        mDefaultRetrofitClient = builder.build();
     }
 
     public static void setDefault(RetrofitClient client) {
@@ -220,6 +220,15 @@ public class RetrofitClient {
          */
         public Builder unsafeSSLSocketFactory(InputStream[] certificates) {
             this.sslFactory = HttpsDelegate.getUnsafeSslSocketFactory(certificates);
+            return this;
+        }
+        /**
+         * 使用预埋证书，校验服务端证书（自签名证书）
+         *
+         * @return
+         */
+        public Builder getSslSocketFactory(InputStream[] certificates, InputStream bksFile, String password) {
+            this.sslFactory = HttpsDelegate.getSslSocketFactory(certificates,bksFile,password);
             return this;
         }
 
