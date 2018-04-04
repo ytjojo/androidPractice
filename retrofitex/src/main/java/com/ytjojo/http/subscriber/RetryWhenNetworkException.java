@@ -16,8 +16,8 @@ import io.reactivex.schedulers.Schedulers;
 public class RetryWhenNetworkException implements Function<Observable<? extends Throwable>, Observable<?>> {
 
     private int count = 3;
-    private long delay = 5000;
-    private long increaseDelay = 5000;
+    private long delay = 3000;
+    private long increaseDelay = 3000;
 
     public RetryWhenNetworkException() {
 

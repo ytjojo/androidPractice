@@ -1,5 +1,7 @@
 package com.ytjojo.rx;
 
+import android.content.Intent;
+
 import com.trello.rxlifecycle2.LifecycleTransformer;
 import com.ytjojo.http.exception.AuthException;
 import com.ytjojo.http.exception.TokenInvalidException;
@@ -24,12 +26,22 @@ import retrofit2.HttpException;
  */
 
 public class RxHttpHelper {
+    public static interface OnErrorLoginCallback{
+        public static final int INTENT_FLAG= Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_CLEAR_TASK
+                | Intent.FLAG_ACTIVITY_CLEAR_TOP;
+        void onErrorLogin(int defaultIntentFlag);
+    }
+    private static  OnErrorLoginCallback sOnErrorLoginCallback;
+    public static void setOnErrorLoginCallback(OnErrorLoginCallback c){
+        sOnErrorLoginCallback = c;
+    }
 
     public static Function<Observable<? extends Throwable>, Observable<?>> getRetryFunc1() {
         return new Function<Observable<? extends Throwable>, Observable<?>>() {
             private int retryDelaySecond = 5;
             private int retryCount = 0;
-            private int maxRetryCount = 1;
+            private int maxRetryCount = 3;
 
             @Override
             public Observable<?> apply(Observable<? extends Throwable> observable) {
@@ -91,7 +103,9 @@ public class RxHttpHelper {
             }
 
             private void login() {
-
+                if(sOnErrorLoginCallback != null){
+                    sOnErrorLoginCallback.onErrorLogin(OnErrorLoginCallback.INTENT_FLAG);
+                }
             }
         };
     }
