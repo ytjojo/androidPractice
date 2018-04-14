@@ -6,7 +6,6 @@ import com.google.gson.TypeAdapter;
 import com.google.gson.internal.Primitives;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonWriter;
-import com.ytjojo.http.RetrofitClient;
 import com.ytjojo.http.util.CollectionUtils;
 
 import java.io.IOException;
@@ -14,36 +13,18 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 
-import okhttp3.MediaType;
 import okhttp3.RequestBody;
 import okio.Buffer;
-import retrofit2.http.BodyJsonAttr;
 
 /**
- * Created by Administrator on 2016/10/27 0027.
+ * Created by Administrator on 2018/4/14 0014.
  */
-public class ParameterMerge {
-    private static final MediaType MEDIA_TYPE = MediaType.parse("application/json; charset=UTF-8");
-    private static final Charset UTF_8 = Charset.forName("UTF-8");
-    public RequestBuilder merge(RequestBuilder builder,ArrayList<Annotation> annotations, ArrayList<MoreParameterHandler<?>> handlers,Object... args) throws IOException {
-        if(handlers ==null ||handlers.isEmpty()){
-            return builder;
-        }
-        if(handlers.get(0).getAnnotation() instanceof BodyJsonAttr){
-            mergeAttrBodyJson(builder,handlers,args);
-        }else{
-            MergeParameterHandler handler = RetrofitClient.getMergeParameterHandler();
-            if(handler != null){
-                builder.setBody(handler.merge(annotations,handlers,args));
-            }
-        }
-        return builder;
-    }
 
-    private void  mergeAttrBodyJson(RequestBuilder builder, ArrayList<MoreParameterHandler<?>> handlers,Object... args) throws IOException{
+public class BodyJsonAttrRequestOpertor implements ParameterRequestOperator {
+    @Override
+    public void operate(IRequestOperator requestOperator, ArrayList<Annotation> annotations, ArrayList<ExtendParameterHandler<?>> handlers, Object... args) throws IOException {
         Gson gson = new GsonBuilder()
                 .setDateFormat("yyyy-MM-dd HH:mm:ss")
                 .create();
@@ -53,7 +34,7 @@ public class ParameterMerge {
         writer.setSerializeNulls(true);
         writer.beginObject();
         if(!CollectionUtils.isEmpty(handlers)){
-            for (MoreParameterHandler<?> handler:handlers) {
+            for (ExtendParameterHandler<?> handler:handlers) {
                 final int index = handler.getIndex();
                 final Object item = args[index];
                 writer.name(handler.getParamName());
@@ -75,6 +56,6 @@ public class ParameterMerge {
         }
         writer.endObject();
         writer.close();
-        builder.setBody(RequestBody.create(MEDIA_TYPE, buffer.readByteString()));
+        requestOperator.setBody(RequestBody.create(MEDIA_TYPE, buffer.readByteString()));
     }
 }

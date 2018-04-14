@@ -1,5 +1,8 @@
 package com.ytjojo;
 
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
@@ -18,8 +21,9 @@ import java.util.ArrayList;
 
 import okhttp3.RequestBody;
 import okio.Buffer;
-import retrofit2.MergeParameterHandler;
-import retrofit2.MoreParameterHandler;
+import retrofit2.IRequestOperator;
+import retrofit2.ParameterRequestOperator;
+import retrofit2.ExtendParameterHandler;
 import retrofit2.http.ArrayItem;
 import retrofit2.http.NgariJsonPost;
 
@@ -27,11 +31,11 @@ import retrofit2.http.NgariJsonPost;
  * Created by Administrator on 2018/3/19 0019.
  */
 
-public class NgariParamHandlar implements MergeParameterHandler {
+public class NgariParamOperator implements ParameterRequestOperator {
 
 
 
-    public static NgariParamHandlar create() {
+    public static NgariParamOperator create() {
         GsonBuilder builder = new GsonBuilder();
         builder.enableComplexMapKeySerialization()
                 .serializeNulls();
@@ -39,15 +43,16 @@ public class NgariParamHandlar implements MergeParameterHandler {
         builder.registerTypeAdapterFactory(DateTypeAdapter.FACTORY);
         return create(builder.create());
     }
-    public static NgariParamHandlar create(Gson gson) {
-        return new NgariParamHandlar(gson);
+    public static NgariParamOperator create(Gson gson) {
+        return new NgariParamOperator(gson);
     }
-    private NgariParamHandlar(Gson gson){
+    private NgariParamOperator(Gson gson){
         this.gson = gson;
     }
     Gson gson;
+
     @Override
-    public RequestBody merge(ArrayList<Annotation> annotations, ArrayList<MoreParameterHandler<?>> handlers, Object... args) throws IOException {
+    public void operate(@NonNull IRequestOperator requestOperator, @Nullable ArrayList<Annotation> annotations, @Nullable ArrayList<ExtendParameterHandler<?>> handlers, @NonNull Object... args) throws IOException {
 
         if(handlers.get(0).getAnnotation() instanceof ArrayItem){
             String method = null;
@@ -73,7 +78,7 @@ public class NgariParamHandlar implements MergeParameterHandler {
             }
             writer .beginArray();
             if(!CollectionUtils.isEmpty(handlers)){
-                for (MoreParameterHandler<?> handler:handlers) {
+                for (ExtendParameterHandler<?> handler:handlers) {
                     final int index = handler.getIndex();
                     final Object item = args[index];
                     if (item == null) {
@@ -96,9 +101,8 @@ public class NgariParamHandlar implements MergeParameterHandler {
                 writer.endObject();
             }
             writer.close();
-            return  RequestBody.create(MEDIA_TYPE, buffer.readByteString());
+            requestOperator.setBody(RequestBody.create(MEDIA_TYPE, buffer.readByteString()));
         }
 
-        return null;
     }
 }

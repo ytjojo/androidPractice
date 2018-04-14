@@ -15,6 +15,7 @@
  */
 package retrofit2;
 
+import com.ytjojo.http.RetrofitClient;
 import com.ytjojo.http.util.TextUtils;
 
 import java.io.IOException;
@@ -83,8 +84,7 @@ final class ServiceMethodHack<R, T> {
   private final boolean isMultipart;
   private final ParameterHandler<?>[] parameterHandlers;
   private final ArrayList<Annotation> annotations;
-  private ArrayList<MoreParameterHandler<?>> mMoreParameterHandlers;
-  private ParameterMerge mParameterMerge;
+  private ArrayList<ExtendParameterHandler<?>> mExtendParameterHandlers;
   ServiceMethodHack(Builder<R, T> builder) {
     this.callFactory = builder.retrofit.callFactory();
     this.callAdapter = builder.callAdapter;
@@ -99,7 +99,6 @@ final class ServiceMethodHack<R, T> {
     this.isMultipart = builder.isMultipart;
     this.parameterHandlers = builder.parameterHandlers;
     this.annotations = builder.annotations;
-    mParameterMerge = new ParameterMerge();
   }
 
   /** Builds an HTTP request from method arguments. */
@@ -115,19 +114,20 @@ final class ServiceMethodHack<R, T> {
       throw new IllegalArgumentException("Argument count (" + argumentCount
           + ") doesn't match expected count (" + handlers.length + ")");
     }
-    if(mMoreParameterHandlers !=null){
-      mMoreParameterHandlers.clear();
+    if(mExtendParameterHandlers !=null){
+      mExtendParameterHandlers.clear();
     }
     for (int p = 0; p < argumentCount; p++) {
-      if(handlers[p] instanceof MoreParameterHandler<?>){
-        if(mMoreParameterHandlers ==null){
-          mMoreParameterHandlers = new ArrayList<>();
+      if(handlers[p] instanceof ExtendParameterHandler<?>){
+        if(mExtendParameterHandlers ==null){
+          mExtendParameterHandlers = new ArrayList<>();
         }
-        mMoreParameterHandlers.add((MoreParameterHandler<?>) handlers[p]);
+        mExtendParameterHandlers.add((ExtendParameterHandler<?>) handlers[p]);
       }
       handlers[p].apply(requestBuilder, args[p]);
     }
-    mParameterMerge.merge(requestBuilder,annotations, mMoreParameterHandlers,args);
+    ExtendedParameterProcessing.extendedprocessing(new RequestOperator(requestBuilder,httpMethod, baseUrl, relativeUrl,
+            contentType, hasBody, isFormEncoded, isMultipart),annotations, mExtendParameterHandlers,args);
     return requestBuilder.build();
   }
 
@@ -736,30 +736,26 @@ final class ServiceMethodHack<R, T> {
         }
         gotBody = true;
         return new ParameterHandler.Body<>(converter);
-      }else if(annotation instanceof ArrayItem ||annotation instanceof BodyJsonAttr){
-        if (isFormEncoded || isMultipart) {
-          throw parameterError(p,
-                  "@Body parameters cannot be used with form or multi-part encoding.");
-        }
-        if (gotBody) {
-          throw parameterError(p, "Multiple @Body method annotations found.");
-        }
-        gotUrl = true;
+      }else{
         if(annotation instanceof ArrayItem){
-          return new MoreParameterHandler<>(null,type,annotation,p);
-        }else{
+          return new ExtendParameterHandler<>(null,type,annotation,p);
+        }else if(annotation instanceof BodyJsonAttr){
           String paramName = ((BodyJsonAttr)annotation).value();
           if(TextUtils.isEmpty(paramName)){
             throw parameterError(p,
-                    "@BodyJsonAttr parameters cannot be empty.");
+                    "@BodyJsonAttr paramName cannot be empty.");
           }
-          return new MoreParameterHandler<>(paramName,type,annotation,p);
+          return new ExtendParameterHandler<>(paramName,type,annotation,p);
+        }else {
+          AnnotationValueConverter annotationValueConverter = RetrofitClient.getAnnotationValueConverter();
+          return new ExtendParameterHandler(annotation!=null?annotationValueConverter.convert(annotation):null,type,annotation,p);
         }
-
       }
 
-      return null; // Not a Retrofit annotation.
+
     }
+
+
 
     private void validatePathName(int p, String name) {
       if (!PARAM_NAME_REGEX.matcher(name).matches()) {

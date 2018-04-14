@@ -1118,7 +1118,7 @@ public abstract class ClassUtils {
 	 * Create a composite interface Class for the given interfaces,
 	 * implementing the given interfaces in one single Class.
 	 * <p>This implementation builds a JDK proxy class for the given interfaces.
-	 * @param interfaces the interfaces to merge
+	 * @param interfaces the interfaces to operate
 	 * @param classLoader the ClassLoader to create the composite Class in
 	 * @return the merged interface as Class
 	 * @see java.lang.reflect.Proxy#getProxyClass

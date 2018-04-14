@@ -57,8 +57,8 @@ public abstract class CollectionUtils {
 	 * copying all properties (key-value pairs) over.
 	 * <p>Uses {@code Properties.propertyNames()} to even catch
 	 * default properties linked into the original Properties instance.
-	 * @param props the Properties instance to merge (may be {@code null})
-	 * @param map the target Map to merge the properties into
+	 * @param props the Properties instance to operate (may be {@code null})
+	 * @param map the target Map to operate the properties into
 	 */
 	@SuppressWarnings("unchecked")
 	public static <K, V> void mergePropertiesIntoMap(Properties props, Map<K, V> map) {

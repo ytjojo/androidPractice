@@ -31,7 +31,7 @@ public class BaseApplication extends Application {
         RetrofitClient.init(RetrofitClient.newBuilder().baseUrl("http://ngaribata.ngarihealth.com:8280/ehealth-base-test/")
                 .showLog(true).cookie(new CookiesManager(this))
                 .cache(getCacheDir())
-                .mergeParameterHandler(NgariParamHandlar.create())
+                .parameterRequestOperator(NgariParamOperator.create())
                 .cookie(PersistentCookieJar.get(this))
                 .addInterceptor(new ReceivedCookiesInterceptor()));
         sInstance = this;

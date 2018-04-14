@@ -25,8 +25,9 @@ import javax.net.ssl.X509TrustManager;
 import okhttp3.CookieJar;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
+import retrofit2.AnnotationValueConverter;
 import retrofit2.Converter;
-import retrofit2.MergeParameterHandler;
+import retrofit2.ParameterRequestOperator;
 import retrofit2.ProxyHandler;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
@@ -36,6 +37,13 @@ public class RetrofitClient {
     public static final String ContentType_FORM = "application/x-www-form-urlencoded; charset=UTF-8";
     private Retrofit retrofit;
     OkHttpClient mOkHttpClient;
+    private static AnnotationValueConverter sAnnotationValueConverter;
+    public static void setAnnotationValueConverter(AnnotationValueConverter converter){
+        sAnnotationValueConverter = converter;
+    }
+    public static AnnotationValueConverter getAnnotationValueConverter(){
+        return sAnnotationValueConverter;
+    }
 
     public RetrofitClient(Retrofit retrofit) {
         this.retrofit = retrofit;
@@ -57,10 +65,10 @@ public class RetrofitClient {
         mHeaderInterceptor.putHeader(key, value);
     }
 
-    private static MergeParameterHandler sMergeParameterHandler;
+    private static ParameterRequestOperator sParameterRequestOperator;
 
-    public static MergeParameterHandler getMergeParameterHandler() {
-        return sMergeParameterHandler;
+    public static ParameterRequestOperator getMergeParameterHandler() {
+        return sParameterRequestOperator;
     }
 
     /**
@@ -255,8 +263,12 @@ public class RetrofitClient {
             return this;
         }
 
-        public Builder mergeParameterHandler(MergeParameterHandler handler) {
-            RetrofitClient.sMergeParameterHandler = handler;
+        public Builder parameterRequestOperator(ParameterRequestOperator handler) {
+            RetrofitClient.sParameterRequestOperator = handler;
+            return this;
+        }
+        public Builder annotationValueConverter(AnnotationValueConverter converter) {
+            RetrofitClient.sAnnotationValueConverter = converter;
             return this;
         }
 
