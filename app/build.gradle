@@ -113,6 +113,7 @@ android {
     sourceSets {
         main {
             jniLibs.srcDirs = ['libs']//重新配置路径
+            java.srcDirs += 'p_module/src'
         }
     }
 

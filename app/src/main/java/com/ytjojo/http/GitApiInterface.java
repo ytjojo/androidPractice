@@ -15,7 +15,7 @@ import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import retrofit2.http.ArrayItem;
 import retrofit2.http.Body;
-import retrofit2.http.BodyJsonAttr;
+import retrofit2.http.PostJsonAttr;
 import retrofit2.http.GET;
 import retrofit2.http.Header;
 import retrofit2.http.Headers;
@@ -45,7 +45,7 @@ public interface GitApiInterface {
     );
 
     @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/logon/login")
-    Observable<LoginResponse> loginAttr(@BodyJsonAttr("uid") String uid, @BodyJsonAttr("pwd") String pwd, @BodyJsonAttr("rid") String rid, @BodyJsonAttr("forAccessToken") boolean forAccessToken);
+    Observable<LoginResponse> loginAttr(@PostJsonAttr("uid") String uid, @PostJsonAttr("pwd") String pwd, @PostJsonAttr("rid") String rid, @PostJsonAttr("forAccessToken") boolean forAccessToken);
 
     @POST("http://ngaribata.ngarihealth.com:8480/ehealth-base-devtest/logon/login")
     Observable<LoginResponse> login(@Body LoginRequest request);

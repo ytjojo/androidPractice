@@ -40,7 +40,7 @@ import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.http.ArrayItem;
 import retrofit2.http.Body;
-import retrofit2.http.BodyJsonAttr;
+import retrofit2.http.PostJsonAttr;
 import retrofit2.http.DELETE;
 import retrofit2.http.Field;
 import retrofit2.http.FieldMap;
@@ -739,8 +739,8 @@ final class ServiceMethodHack<R, T> {
       }else{
         if(annotation instanceof ArrayItem){
           return new ExtendParameterHandler<>(null,type,annotation,p);
-        }else if(annotation instanceof BodyJsonAttr){
-          String paramName = ((BodyJsonAttr)annotation).value();
+        }else if(annotation instanceof PostJsonAttr){
+          String paramName = ((PostJsonAttr)annotation).value();
           if(TextUtils.isEmpty(paramName)){
             throw parameterError(p,
                     "@BodyJsonAttr paramName cannot be empty.");
