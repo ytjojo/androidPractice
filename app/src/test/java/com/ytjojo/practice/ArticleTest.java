@@ -12,6 +12,7 @@ import io.reactivex.Observer;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
 import okhttp3.OkHttpClient;
+import retrofit2.ProxyHandler;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.http.GET;
@@ -38,7 +39,7 @@ public class ArticleTest {
                 .client(o)
                 .baseUrl("http://www.ngarihealth.com/").build();
         System.out.println("setUp");
-        retrofit.create(ArticleService.class).getList1().subscribe(new Observer<Void>() {
+        ProxyHandler.create(retrofit,ArticleService.class).getList1().subscribe(new Observer<Void>() {
 
             @Override
             public void onError(Throwable e) {
