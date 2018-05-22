@@ -130,10 +130,9 @@ import okio.Source;
  * {@link CacheControl#FORCE_CACHE} that address the use cases above.
  */
 public final class Cache implements Closeable, Flushable {
-
-  private static final String PREFIX_DYNAMIC_KEY = "$d$d$d$";
-  private static final String PREFIX_DYNAMIC_KEY_GROUP = "$g$g$g$";
-	private static final int VERSION = 201105;
+  private static final String PREFIX_DYNAMIC_KEY = "_d_d_d_";
+  private static final String PREFIX_DYNAMIC_KEY_GROUP = "_g_g_g_";
+  private static final int VERSION = 201105;
   private static final int ENTRY_METADATA = 0;
   private static final int ENTRY_BODY = 1;
   private static final int ENTRY_COUNT = 2;
@@ -190,7 +189,7 @@ public final class Cache implements Closeable, Flushable {
     return ByteString.encodeUtf8(source).md5().hex();
   }
   public static String composeKey(Request request,String dynamicKey,String dynamicKeyGroup){
-    return  key(request.url().toString()+PREFIX_DYNAMIC_KEY+dynamicKey+(dynamicKeyGroup==null?"":PREFIX_DYNAMIC_KEY_GROUP+dynamicKeyGroup));
+    return  key(request.url().toString())+(dynamicKey==null?"":dynamicKey)+(dynamicKeyGroup==null?"":PREFIX_DYNAMIC_KEY_GROUP+dynamicKeyGroup);
   }
 
   /**
@@ -367,7 +366,19 @@ public final class Cache implements Closeable, Flushable {
   }
 
   void remove(Request request , String dynamicKey,String dynamicKeyGroup) throws IOException {
-    cache.remove( composeKey(request,dynamicKey,dynamicKeyGroup));
+    String curKey = composeKey(request,dynamicKey,dynamicKeyGroup);
+    if(dynamicKeyGroup !=null){
+       List<String> keys= allKeys();
+        for(String key : keys){
+          if(key.length()>32 && key.contains(PREFIX_DYNAMIC_KEY_GROUP+dynamicKeyGroup)){
+            if(curKey.substring(0,32).equals(key.substring(0,32))){
+              cache.remove(key);
+            }
+          }
+        }
+    }else {
+      cache.remove( composeKey(request,dynamicKey,dynamicKeyGroup));
+    }
   }
   void remove(Request request) throws IOException {
     cache.remove(key(request.url()));

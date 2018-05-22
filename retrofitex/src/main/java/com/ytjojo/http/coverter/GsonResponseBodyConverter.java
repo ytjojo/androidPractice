@@ -29,6 +29,7 @@ import com.ytjojo.http.util.TextUtils;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
 import okhttp3.ResponseBody;
@@ -119,7 +120,14 @@ final class GsonResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 					return (T) wrapper.body;
 				}
 			}
-			return mGson.fromJson(value, type);
+			if(type instanceof ParameterizedType && ServerResponse.class.isAssignableFrom((Class<?>) ((ParameterizedType)type).getRawType())){
+				return mGson.fromJson(value, type);
+
+			}else {
+				Type wrapperType = $Gson$Types.newParameterizedTypeWithOwner(null,ServerResponse.class,type);
+				ServerResponse<?> wrapper = mGson.fromJson(value, wrapperType);
+				return (T) wrapper.body;
+			}
 		}catch (Exception e){
 			throw new JsonException("json解析失败",e);
 		}

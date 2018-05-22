@@ -35,7 +35,7 @@ import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 public class RetrofitClient {
     public static final String ContentType_JSON = "application/json";
     public static final String ContentType_FORM = "application/x-www-form-urlencoded; charset=UTF-8";
-    private Retrofit retrofit;
+    private Retrofit mRetrofit;
     OkHttpClient mOkHttpClient;
     private static AnnotationValueConverter sAnnotationValueConverter;
     public static void setAnnotationValueConverter(AnnotationValueConverter converter){
@@ -46,12 +46,12 @@ public class RetrofitClient {
     }
 
     public RetrofitClient(Retrofit retrofit) {
-        this.retrofit = retrofit;
+        this.mRetrofit = retrofit;
     }
 
     public RetrofitClient(Retrofit retrofit, HeaderInterceptor headerInterceptor) {
         this.mHeaderInterceptor = headerInterceptor;
-        this.retrofit = retrofit;
+        this.mRetrofit = retrofit;
     }
 
     private void setOkHttpClient(OkHttpClient okHttpClient) {
@@ -324,11 +324,18 @@ public class RetrofitClient {
     }
 
     public <T> T create(Class<T> service) {
-        return ProxyHandler.create(retrofit, service);
+        return ProxyHandler.create(mRetrofit, service);
     }
 
     public static RetrofitClient getDefault() {
         return mDefaultRetrofitClient;
+    }
+
+    public OkHttpClient getOkhttpClient(){
+        return mOkHttpClient;
+    }
+    public Retrofit getRetrofit(){
+        return mRetrofit;
     }
 
 
